@@ -87,6 +87,7 @@ export const navigationItems: NavItemConfig[] = [
             activeOn: ['/configuration'],
             children: [
               { id: 'config-advert',        label: 'Advert Limits',        icon: Megaphone, route: '/configuration', params: { tab: 'advert' },        activeOn: ['/configuration'] },
+              { id: 'config-bridge', label: 'Bridge', icon: Repeat2, route: '/configuration', params: { tab: 'bridge' }, activeOn: ['/configuration'] },
               { id: 'config-transport',     label: 'Regions/Keys',         icon: Globe,     route: '/configuration', params: { tab: 'transport' },     activeOn: ['/configuration'] },
               { id: 'config-api-tokens',    label: 'API Tokens',           icon: KeyRound,  route: '/configuration', params: { tab: 'api-tokens' },    activeOn: ['/configuration'] },
               { id: 'config-web',           label: 'Web Options',          icon: Globe,     route: '/configuration', params: { tab: 'web' },           activeOn: ['/configuration'] },

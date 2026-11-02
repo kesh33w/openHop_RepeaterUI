@@ -13,6 +13,7 @@ docs
 .claude
 .vexp
 dist
+dist-bridge
 dist-ssr
 coverage
 *.local
