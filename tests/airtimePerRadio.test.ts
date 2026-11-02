@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { mount, flushPromises, type VueWrapper } from '@vue/test-utils';
+import { mount, flushPromises, enableAutoUnmount, type VueWrapper } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 
 vi.mock('@/utils/streamingFetch', () => ({
@@ -25,6 +25,9 @@ import {
   type SeriesGrid,
   type UtilSample,
 } from '@/composables/useAirtimeSeries';
+
+// Release every mounted chart before jsdom teardown, including delayed draw callbacks.
+enableAutoUnmount(afterEach);
 
 const mockedGet = vi.mocked(streamingGet);
 
