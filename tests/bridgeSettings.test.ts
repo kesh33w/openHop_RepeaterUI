@@ -9,6 +9,35 @@ beforeEach(() => {
   vi.mocked(ApiService.post).mockResolvedValue({success:true,data:{restart_required:true}});
 });
 describe('native bridge settings', () => {
+  it('defaults direct transit off and saves explicitly selected routes without channel keys', async () => {
+    vi.mocked(ApiService.get).mockResolvedValue({success:true,data:{settings:{enabled:true,origin_home:'a',channels:{},mappings:[]},radio_ids:['a','b']}});
+    const wrapper = mount(BridgeSettings); await flushPromises();
+    expect(wrapper.findAll('.direct-route-row')).toHaveLength(0);
+    await wrapper.findAll('button').find(b=>b.text()==='Add direct route')!.trigger('click');
+    const selects=wrapper.findAll<HTMLSelectElement>('.direct-route-row select');
+    expect(selects.map(s=>s.element.value)).toEqual(['','']);
+    await selects[0]!.setValue('a'); await selects[1]!.setValue('b');
+    await wrapper.get('form').trigger('submit'); await flushPromises();
+    expect(ApiService.post).toHaveBeenCalledWith('/update_bridge_settings',expect.objectContaining({channels:{},direct_routes:[{source_radio:'a',target_radio:'b'}]}));
+  });
+  it.each([
+    {direct_routes:[{source_radio:'a',target_radio:'a'}]},
+    {direct_routes:[{source_radio:'unknown',target_radio:'b'}]},
+    {direct_routes:[{source_radio:'a',target_radio:'b'},{source_radio:'a',target_radio:'b'}]},
+  ])('rejects invalid or ambiguous direct routes %j', async ({direct_routes}) => {
+    vi.mocked(ApiService.get).mockResolvedValue({success:true,data:{settings:{enabled:true,origin_home:'a',channels:{},mappings:[],direct_routes},radio_ids:['a','b']}});
+    const wrapper = mount(BridgeSettings); await flushPromises();
+    await wrapper.get('form').trigger('submit'); await flushPromises();
+    expect(ApiService.post).not.toHaveBeenCalled();
+    expect(wrapper.text()).toContain('only one destination per source radio');
+  });
+  it('removes direct routes explicitly without changing channel mappings', async () => {
+    vi.mocked(ApiService.get).mockResolvedValue({success:true,data:{settings:{enabled:false,channels:{},mappings:[],direct_routes:[{source_radio:'a',target_radio:'b'}]},radio_ids:['a','b']}});
+    const wrapper = mount(BridgeSettings); await flushPromises();
+    await wrapper.findAll('button').find(b=>b.text()==='Remove direct route')!.trigger('click');
+    await wrapper.get('form').trigger('submit'); await flushPromises();
+    expect(ApiService.post).toHaveBeenCalledWith('/update_bridge_settings',expect.objectContaining({direct_routes:[],mappings:[]}));
+  });
   it('requires an explicit configured origin home when enabling the bridge', async () => {
     const wrapper = mount(BridgeSettings); await flushPromises();
     await wrapper.get('input[type=checkbox]').setValue(true);
