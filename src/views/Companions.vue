@@ -13,6 +13,32 @@ import { QrCode } from '@lucide/vue';
 defineOptions({ name: 'CompanionsView' });
 
 const loading = ref(false);
+const radioIds = ref<string[]>([]);
+const bridgeEnabled = ref(false);
+const routingReady = ref(false);
+
+async function fetchRouting() {
+  routingReady.value = false;
+  try {
+    const response = await ApiService.get<{ settings: { enabled: boolean }; radio_ids: string[] }>('/bridge_settings');
+    if (!response.success || !response.data) return;
+    radioIds.value = response.data.radio_ids;
+    bridgeEnabled.value = response.data.settings.enabled;
+    routingReady.value = true;
+  } catch { /* Keep create/update blocked until routing requirements can be checked. */ }
+}
+
+function validHome(home: unknown): boolean {
+  if (!routingReady.value) {
+    showMessage('Radio routing settings could not be loaded. Reload this page before saving a companion.', 'error');
+    return false;
+  }
+  if ((bridgeEnabled.value || Boolean(home)) && (typeof home !== 'string' || !radioIds.value.includes(home))) {
+    showMessage('Select a configured home radio for this companion. Its replies originate on that radio.', 'error');
+    return false;
+  }
+  return true;
+}
 const error = ref<string | null>(null);
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const identities = ref<any>(null);
@@ -48,11 +74,12 @@ const newIdentity = ref({
     node_name: '',
     tcp_port: 5000,
     bind_address: '0.0.0.0',
+    home_radio_id: '',
   },
 });
 
 onMounted(async () => {
-  await fetchIdentities();
+  await Promise.all([fetchIdentities(), fetchRouting()]);
 });
 
 async function fetchIdentities() {
@@ -75,6 +102,7 @@ async function fetchIdentities() {
 }
 
 async function createIdentity() {
+  if (!validHome(newIdentity.value.settings.home_radio_id)) return;
   try {
     const response = await ApiService.createIdentity({
       ...newIdentity.value,
@@ -82,6 +110,7 @@ async function createIdentity() {
         node_name: newIdentity.value.settings.node_name || newIdentity.value.name,
         tcp_port: newIdentity.value.settings.tcp_port ?? 5000,
         bind_address: newIdentity.value.settings.bind_address || '0.0.0.0',
+        home_radio_id: newIdentity.value.settings.home_radio_id || null,
       },
     });
 
@@ -99,6 +128,7 @@ async function createIdentity() {
 }
 
 async function updateIdentity() {
+  if (!validHome(editingIdentity.value.settings?.home_radio_id)) return;
   const payload: {
     name: string;
     new_name?: string;
@@ -113,6 +143,7 @@ async function updateIdentity() {
       node_name: editingIdentity.value.settings?.node_name,
       tcp_port: editingIdentity.value.settings?.tcp_port,
       bind_address: editingIdentity.value.settings?.bind_address,
+      home_radio_id: editingIdentity.value.settings?.home_radio_id || null,
     },
   };
   if (editingIdentity.value.name !== editOriginalName.value) {
@@ -184,6 +215,7 @@ function resetForm() {
       node_name: '',
       tcp_port: 5000,
       bind_address: '0.0.0.0',
+    home_radio_id: '',
     },
   };
   showKeyInCreate.value = false;
@@ -645,6 +677,15 @@ function closeQrModal() {
             />
           </div>
 
+          <div>
+            <label class="block text-sm mb-2">Home radio</label>
+            <select v-model="newIdentity.settings.home_radio_id" data-testid="newIdentity-home" class="modal-input" :required="bridgeEnabled" :disabled="!routingReady">
+              <option value="">Select a radio</option>
+              <option v-for="id in radioIds" :key="id" :value="id">{{ id }}</option>
+            </select>
+            <p class="text-sm mt-1">Required when the bridge is enabled. Replies start here and may cross through a configured channel mapping.</p>
+          </div>
+
           <div class="grid grid-cols-2 gap-4">
             <div>
               <label class="block text-content-secondary dark:text-content-primary/opacity-heavy text-sm mb-2"
@@ -746,6 +787,15 @@ function closeQrModal() {
               type="text"
               class="modal-input"
             />
+          </div>
+
+          <div>
+            <label class="block text-sm mb-2">Home radio</label>
+            <select v-model="editingIdentity.settings.home_radio_id" data-testid="editingIdentity-home" class="modal-input" :required="bridgeEnabled" :disabled="!routingReady">
+              <option value="">Select a radio</option>
+              <option v-for="id in radioIds" :key="id" :value="id">{{ id }}</option>
+            </select>
+            <p class="text-sm mt-1">Required when the bridge is enabled. Replies start here and may cross through a configured channel mapping.</p>
           </div>
 
           <div class="grid grid-cols-2 gap-4">

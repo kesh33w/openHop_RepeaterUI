@@ -2,7 +2,7 @@
 import { onMounted, ref } from 'vue';
 import ApiService from '@/utils/api';
 type Mapping = { source_radio: string; target_radio: string; source_channel: string; target_channel: string };
-type Settings = { enabled: boolean; channels: Record<string,string>; mappings: Mapping[]; echo_database?: string; queue_ttl_seconds?: number; max_pending_crossings?: number; [key: string]: unknown };
+type Settings = { enabled: boolean; origin_home?: string; channels: Record<string,string>; mappings: Mapping[]; echo_database?: string; queue_ttl_seconds?: number; max_pending_crossings?: number; [key: string]: unknown };
 const settings = ref<Settings>({ enabled: false, channels: {}, mappings: [] });
 const radios = ref<string[]>([]);
 const channels = ref<{name:string; key:string; saved:boolean}[]>([]);
@@ -27,11 +27,20 @@ async function save() {
   busy.value = true;
   message.value = '';
   try {
+    if (settings.value.enabled && !radios.value.includes(settings.value.origin_home || '')) {
+      message.value = 'Not saved. Select an origin home radio for messages sent by OpenHop.';
+      return;
+    }
     const names = channels.value.map(c => c.name.trim());
     if (names.some(n => !n) || new Set(names).size !== names.length) throw new Error('names');
     const submitted = Object.fromEntries(channels.value.map((c,i) => [names[i], c.key || (c.saved ? '*** REDACTED ***' : '')]));
     const response = await ApiService.post('/update_bridge_settings', {...settings.value, channels:submitted});
-    if (!response.success) throw new Error('save');
+    if (!response.success) {
+      message.value = response.error === 'bridge_home_assignment_required'
+        ? 'Not saved. Assign an origin home radio and a home radio for every companion. Edit companion homes on the Companions page.'
+        : 'Not saved. Check channel keys, radio selections, mappings and queue limits.';
+      return;
+    }
     await load();
     message.value = 'Saved. Restart OpenHop to apply these settings. The running bridge is unchanged.';
   } catch { message.value = 'Not saved. Check channel keys, radio selections, mappings and queue limits.'; }
@@ -57,6 +66,13 @@ onMounted(load);
     <form v-if="ready" @submit.prevent="save" @input="isEditing = true" @change="isEditing = true">
       <fieldset :disabled="busy">
         <label><input v-model="settings.enabled" type="checkbox"> Enable bridge</label>
+        <label>Origin home radio
+          <select v-model="settings.origin_home" data-testid="origin-home" :required="settings.enabled">
+            <option value="">Select a radio</option>
+            <option v-for="id in radios" :key="id" :value="id">{{ id }}</option>
+          </select>
+        </label>
+        <p>Choose where messages sent by OpenHop originate. Each companion also needs its own home radio on the Companions page. A channel mapping may then forward the message to the other side.</p>
         <label>Echo database path <input v-model="settings.echo_database" readonly required></label>
         <label>Pending crossing limit <input v-model.number="settings.max_pending_crossings" type="number" min="1" max="1000" placeholder="64"></label>
         <label>Queue expiry, seconds <input v-model.number="settings.queue_ttl_seconds" type="number" min="1" max="120" placeholder="30"></label>

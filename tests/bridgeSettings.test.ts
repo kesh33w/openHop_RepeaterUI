@@ -9,14 +9,37 @@ beforeEach(() => {
   vi.mocked(ApiService.post).mockResolvedValue({success:true,data:{restart_required:true}});
 });
 describe('native bridge settings', () => {
+  it('requires an explicit configured origin home when enabling the bridge', async () => {
+    const wrapper = mount(BridgeSettings); await flushPromises();
+    await wrapper.get('input[type=checkbox]').setValue(true);
+    await wrapper.get('form').trigger('submit'); await flushPromises();
+    expect(ApiService.post).not.toHaveBeenCalled();
+    expect(wrapper.text()).toContain('Select an origin home radio');
+    await wrapper.get('[data-testid=origin-home]').setValue('b');
+    await wrapper.get('form').trigger('submit'); await flushPromises();
+    expect(ApiService.post).toHaveBeenCalledWith('/update_bridge_settings', expect.objectContaining({origin_home:'b'}));
+  });
+  it('uses canonical server choices without inventing a default home', async () => {
+    vi.mocked(ApiService.get).mockResolvedValue({success:true,data:{settings:{enabled:true,origin_home:'missing',channels:{},mappings:[]},radio_ids:['alias-a','alias-b']}});
+    const wrapper = mount(BridgeSettings); await flushPromises();
+    expect(wrapper.get('[data-testid=origin-home]').findAll('option').map(o=>o.attributes('value'))).toEqual(['','alias-a','alias-b']);
+    await wrapper.get('form').trigger('submit'); await flushPromises();
+    expect(ApiService.post).not.toHaveBeenCalled();
+  });
+  it('directs incomplete companion assignments to the companion editor', async () => {
+    vi.mocked(ApiService.post).mockResolvedValue({success:false,error:'bridge_home_assignment_required'});
+    const wrapper = mount(BridgeSettings); await flushPromises();
+    await wrapper.get('form').trigger('submit'); await flushPromises();
+    expect(wrapper.text()).toContain('Companions page');
+  });
   it('keeps mapping DOM values and selected labels correct after save reorders channels and radios', async () => {
-    const settings = {enabled:true, channels:{Public:'*** REDACTED ***','#test':'*** REDACTED ***'}, mappings:[{source_radio:'a',target_radio:'b',source_channel:'Public',target_channel:'#test'}],echo_database:'/tmp/echo.sqlite'};
+    const settings = {enabled:true, origin_home: 'a', channels:{Public:'*** REDACTED ***','#test':'*** REDACTED ***'}, mappings:[{source_radio:'a',target_radio:'b',source_channel:'Public',target_channel:'#test'}],echo_database:'/tmp/echo.sqlite'};
     vi.mocked(ApiService.get)
       .mockResolvedValueOnce({success:true,data:{settings,radio_ids:['a','b']}})
       .mockResolvedValueOnce({success:true,data:{settings:{...settings,channels:{'#test':'*** REDACTED ***',Public:'*** REDACTED ***'}},radio_ids:['b','a']}});
     const wrapper = mount(BridgeSettings); await flushPromises();
-    const values = () => wrapper.findAll<HTMLSelectElement>('select').map(s => s.element.value);
-    const labels = () => wrapper.findAll<HTMLSelectElement>('select').map(s => s.element.selectedOptions[0]?.textContent);
+    const values = () => wrapper.findAll<HTMLSelectElement>('.mapping-row select').map(s => s.element.value);
+    const labels = () => wrapper.findAll<HTMLSelectElement>('.mapping-row select').map(s => s.element.selectedOptions[0]?.textContent);
     expect(values()).toEqual(['a','Public','b','#test']);
     await wrapper.get('form').trigger('submit'); await flushPromises();
     expect(ApiService.post).toHaveBeenCalledWith('/update_bridge_settings',expect.objectContaining({mappings:settings.mappings}));
@@ -44,7 +67,7 @@ describe('native bridge settings', () => {
   it('adds mappings using configured radios',async () => {
     const wrapper=mount(BridgeSettings);await flushPromises();
     await wrapper.findAll('button').find(b=>b.text()==='Add mapping')!.trigger('click');
-    expect(wrapper.findAll('select')[0]!.element.value).toBe('a');
-    expect(wrapper.findAll('select')[2]!.element.value).toBe('b');
+    expect(wrapper.findAll<HTMLSelectElement>('.mapping-row select')[0]!.element.value).toBe('a');
+    expect(wrapper.findAll<HTMLSelectElement>('.mapping-row select')[2]!.element.value).toBe('b');
   });
 });
