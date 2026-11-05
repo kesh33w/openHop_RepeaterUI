@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import ApiService from '@/utils/api';
+import InternetLinkSettings from './InternetLinkSettings.vue';
+const internetLink = ref<InstanceType<typeof InternetLinkSettings> | null>(null);
 type Mapping = { source_radio: string; target_radio: string; source_channel: string; target_channel: string };
 type DirectRoute = { source_radio: string; target_radio: string };
 type Settings = { enabled: boolean; origin_home?: string; channels: Record<string,string>; mappings: Mapping[]; direct_routes?: DirectRoute[]; echo_database?: string; queue_ttl_seconds?: number; max_pending_crossings?: number; [key: string]: unknown };
@@ -16,7 +18,7 @@ async function load() {
   try {
     const response = await ApiService.get<{settings: Settings; radio_ids: string[]}>('/bridge_settings');
     if (!response.success || !response.data) throw new Error('load');
-    settings.value = {...response.data.settings, direct_routes: response.data.settings.direct_routes || []};
+    settings.value = {...response.data.settings, channels: response.data.settings.channels || {}, mappings: response.data.settings.mappings || [], direct_routes: response.data.settings.direct_routes || []};
     radios.value = response.data.radio_ids;
     channels.value = Object.keys(settings.value.channels).map(name => ({name, key:'', saved:true}));
     ready.value = true;
@@ -62,9 +64,11 @@ function addDirectRoute() {
   isEditing.value = true;
 }
 function requestLeave(accept:()=>void, cancel?:()=>void) {
-  if (!isEditing.value || window.confirm('Discard unsaved bridge changes?')) accept(); else cancel?.();
+  const proceed = () => internetLink.value ? internetLink.value.requestLeave(accept, cancel) : accept();
+  if (!isEditing.value || window.confirm('Discard unsaved bridge changes?')) proceed(); else cancel?.();
 }
-defineExpose({isEditing, requestLeave});
+const anyEditing = computed(() => isEditing.value || !!internetLink.value?.isEditing);
+defineExpose({isEditing: anyEditing, requestLeave});
 onMounted(load);
 </script>
 
@@ -116,6 +120,7 @@ onMounted(load);
         <div class="actions"><button type="submit">Save bridge settings</button><button type="button" @click="load">Discard changes</button></div>
       </fieldset>
     </form>
+    <InternetLinkSettings ref="internetLink" />
   </section>
 </template>
 

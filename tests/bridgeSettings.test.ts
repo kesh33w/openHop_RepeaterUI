@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 import BridgeSettings from '@/components/configuration/BridgeSettings.vue';
 import ApiService from '@/utils/api';
+vi.mock('@/components/configuration/InternetLinkSettings.vue', () => ({ default: { template: '<div />' } }));
 vi.mock('@/utils/api', () => ({default:{get:vi.fn(),post:vi.fn()}}));
 beforeEach(() => {
   vi.resetAllMocks();
@@ -99,4 +100,14 @@ describe('native bridge settings', () => {
     expect(wrapper.findAll<HTMLSelectElement>('.mapping-row select')[0]!.element.value).toBe('a');
     expect(wrapper.findAll<HTMLSelectElement>('.mapping-row select')[2]!.element.value).toBe('b');
   });
+});
+
+
+it('loads the real disabled Pi response when optional collections are omitted', async () => {
+  vi.mocked(ApiService.get).mockResolvedValue({success:true,data:{settings:{enabled:false,echo_database:'/var/lib/openhop_repeater/bridge-echo.sqlite',direct_routes:[],max_pending_crossings:64,queue_ttl_seconds:30},radio_ids:['host-rf'],restart_required:true}});
+  const wrapper = mount(BridgeSettings); await flushPromises();
+  expect(wrapper.text()).not.toContain('Bridge settings could not be loaded');
+  expect(wrapper.find('form').exists()).toBe(true);
+  expect(wrapper.get('[data-testid=origin-home]').text()).toContain('host-rf');
+  wrapper.unmount();
 });
