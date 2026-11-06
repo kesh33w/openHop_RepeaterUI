@@ -4,6 +4,7 @@ import { useSystemStore } from '@/stores/system';
 import ApiService from '@/utils/api';
 import RestartModal from '@/components/modals/RestartModal.vue';
 import BrokerEditModal from '@/components/modals/BrokerEditModal.vue';
+import { useMultiRadioConfig } from '@/composables/useMultiRadioConfig';
 import UnsavedChangesModal from '@/components/ui/UnsavedChangesModal.vue';
 import { useUnsavedChanges } from '@/composables/useUnsavedChanges';
 
@@ -21,6 +22,7 @@ interface BrokerTemplate {
   website?: string;    // optional, omitted when absent from the YAML
   brokers: Omit<CustomBroker, '_id'>[];
 }
+const { radioOptions } = useMultiRadioConfig();
 const BROKER_TEMPLATES = ref<BrokerTemplate[]>([]);
 // Tri-state UI signal for the dropdown header so operators can tell the
 // difference between "still loading", "no presets available", and "the
@@ -40,6 +42,8 @@ interface CustomBroker {
   port: number;
   format: string;
   audience?: string;
+  radio_id?: string;
+  iata_code?: string;
   use_jwt_auth?: boolean;
   username?: string;
   password?: string;
@@ -251,6 +255,7 @@ function mkBroker(b: Partial<Omit<CustomBroker, '_id'>> = {}): CustomBroker {
   return {
     _id: _nextId++, enabled: b.enabled ?? true, name: b.name ?? '',
     host: b.host ?? '', port: b.port ?? 0, audience: b.audience ?? '',
+    radio_id: b.radio_id ?? '', iata_code: b.iata_code ?? '',
     format: b.format ?? 'letsmesh', use_jwt_auth: b.use_jwt_auth ?? false,
     username: b.username ?? '', password: b.password ?? '',
     transport: b.transport ?? 'websockets',
@@ -299,6 +304,7 @@ function buildPayload() {
     brokers: customBrokers.value.map(b => {
       const base = {
         name: b.name, enabled: b.enabled, transport: b.transport,
+        radio_id: b.radio_id || null, iata_code: b.iata_code || null,
         host: b.host, port: b.port, use_jwt_auth: b.use_jwt_auth,
         format: b.format, disallowed_packet_types: b.disallowedInput,
         base_topic: b.base_topic, retain_status: b.retain_status,
@@ -555,6 +561,7 @@ onUnmounted(() => {
 
   <!-- ── Broker Edit Modal ──────────────────────────────────────────────── -->
   <BrokerEditModal
+    :radio-options="radioOptions"
     :show="editingBrokerId !== null"
     :broker="editingBrokerId !== null ? brokerDraft : null"
     :is-new="isNewBroker"
@@ -632,7 +639,7 @@ onUnmounted(() => {
           </span>
         </div>
         <div v-if="status.brokers.length" class="space-y-2">
-          <div v-for="broker in status.brokers" :key="broker.host" class="flex items-center gap-2">
+          <div v-for="broker in status.brokers" :key="broker.name" class="flex items-center gap-2">
             <span class="text-sm text-content-secondary dark:text-content-muted w-36 truncate" :title="broker.name">{{ broker.name }}</span>
             <span :class="['inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium', broker.status.connected ? 'bg-accent-green/opacity-light dark:bg-accent-green/opacity-medium text-accent-green' : broker.status.reconnecting ? 'bg-accent-amber/opacity-light dark:bg-accent-amber/opacity-medium text-accent-amber' : 'bg-accent-red/opacity-light dark:bg-accent-red/opacity-medium text-accent-red']">
               <span class="w-1.5 h-1.5 rounded-full" :class="broker.status.connected ? 'bg-accent-green/opacity-light' : broker.status.reconnecting ? 'bg-accent-amber/opacity-light' : 'bg-accent-red/opacity-light'"></span>

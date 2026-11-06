@@ -14,6 +14,8 @@ interface Broker {
   port: number;
   format: string;
   audience?: string;
+  radio_id?: string;
+  iata_code?: string;
   use_jwt_auth?: boolean;
   username?: string;
   password?: string;
@@ -33,6 +35,7 @@ interface Props {
   show: boolean;
   broker: Broker | null;
   isNew: boolean;
+  radioOptions?: { id: string; label: string }[];
 }
 
 interface Emits {
@@ -155,6 +158,18 @@ function handleCancel() {
                 placeholder="Broker Name"
                 class="modal-input"
               />
+            </div>
+
+            <div class="grid grid-cols-2 gap-5">
+              <label class="modal-field-label">Receive radio
+                <select v-model="draft.radio_id" class="modal-select" data-testid="observer-radio">
+                  <option value="">All radios</option>
+                  <option v-for="radio in radioOptions || []" :key="radio.id" :value="radio.id">{{ radio.label }}</option>
+                </select>
+              </label>
+              <label class="modal-field-label">Region code
+                <input v-model="draft.iata_code" class="modal-input" placeholder="Use global code" maxlength="8" data-testid="observer-iata" />
+              </label>
             </div>
 
             <!-- Row: Format (left) | Enabled (right) -->
