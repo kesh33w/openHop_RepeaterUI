@@ -47,3 +47,35 @@ it('guards unsaved changes and disables controls for an unavailable listener', a
   vi.mocked(ApiService.get).mockResolvedValue({ success: true, data: { ...data(), editable: false, listening: false } });
   const unavailable = mount(InternetLink); await flushPromises(); expect(unavailable.get('fieldset').attributes()).toHaveProperty('disabled'); unavailable.unmount();
 });
+
+it.each([
+  [null, 'Not recorded'], [0, '0 seconds ago'], [1, '1 second ago'],
+  [62, '1 minute ago'], [125, '2 minutes ago'], [7200, '2 hours ago'],
+])('shows inbound frame age %s without treating it as delivery', async (age, expected) => {
+  vi.mocked(ApiService.get).mockResolvedValue({ success: true, data: {
+    ...data(), peers: [{ id: 'device-a', connected: true, last_valid_inbound_frame_age_seconds: age }],
+  } });
+  const w = mount(InternetLink); await flushPromises();
+  expect(w.text()).toContain(`Last valid inbound frame: ${expected}`);
+  expect(w.text()).toContain('Connected');
+  expect(w.text()).toContain('Neither connection nor frame activity confirms RF delivery');
+  w.unmount();
+});
+
+it('handles an older status response and refreshes connection and activity independently', async () => {
+  const w = mount(InternetLink); await flushPromises();
+  expect(w.text()).toContain('Last valid inbound frame: Not recorded');
+  vi.mocked(ApiService.get).mockResolvedValue({ success: true, data: {
+    ...data(), peers: [{ id: 'device-a', connected: false, last_valid_inbound_frame_age_seconds: 125 }],
+  } });
+  await vi.advanceTimersByTimeAsync(5000); await flushPromises();
+  expect(w.text()).toContain('Disconnected');
+  expect(w.text()).toContain('Last valid inbound frame: 2 minutes ago');
+  vi.mocked(ApiService.get).mockResolvedValue({ success: true, data: {
+    ...data(), peers: [{ id: 'device-a', connected: true, last_valid_inbound_frame_age_seconds: 130 }],
+  } });
+  await vi.advanceTimersByTimeAsync(5000); await flushPromises();
+  expect(w.text()).toContain('Connected');
+  expect(w.text()).toContain('Last valid inbound frame: 2 minutes ago');
+  w.unmount();
+});

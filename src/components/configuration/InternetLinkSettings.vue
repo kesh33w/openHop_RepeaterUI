@@ -6,7 +6,7 @@ type Status = {
   enabled: boolean; running: boolean; listening: boolean; editable: boolean;
   listener_port: number | null; node_id: string; enrollment_available: boolean;
   settings: Options; active_settings: Options | null; packet_ttl_ms: number;
-  peers: { id: string; connected: boolean }[];
+  peers: { id: string; connected: boolean; last_valid_inbound_frame_age_seconds?: number | null }[];
   routes: { direction: string; peer: string; radio?: string; local_radio: string }[];
   pending_rf: number; dropped_tasks: number; transport_failures: number;
 };
@@ -20,6 +20,12 @@ const error = ref('');
 const autoRefresh = ref(true);
 let timer: ReturnType<typeof setInterval> | undefined;
 let disposed = false;
+function frameAge(seconds?: number | null) {
+  if (typeof seconds !== 'number' || !Number.isFinite(seconds) || seconds < 0) return 'Not recorded';
+  const [value, unit] = seconds < 60 ? [Math.floor(seconds), 'second']
+    : seconds < 3600 ? [Math.floor(seconds / 60), 'minute'] : [Math.floor(seconds / 3600), 'hour'];
+  return `${value} ${unit}${value === 1 ? '' : 's'} ago`;
+}
 async function refresh(reset = false) {
   if (refreshing.value || busy.value) return;
   refreshing.value = true;
@@ -78,8 +84,11 @@ onUnmounted(() => { disposed = true; if (timer) clearInterval(timer); });
       </dl>
       <h4>Approved peers</h4>
       <p v-if="!status.peers.length">No approved peers are configured.</p>
-      <ul v-else><li v-for="peer in status.peers" :key="peer.id"><span class="peer-id">{{ peer.id }}</span>: {{ peer.connected ? 'Connected' : 'Disconnected' }}</li></ul>
-      <p>A connected session confirms TLS authentication. It does not confirm RF delivery or a recipient acknowledgement.</p>
+      <ul v-else><li v-for="peer in status.peers" :key="peer.id">
+        <span class="peer-id">{{ peer.id }}</span>: {{ peer.connected ? 'Connected' : 'Disconnected' }}
+        <small>Last valid inbound frame: {{ frameAge(peer.last_valid_inbound_frame_age_seconds) }}</small>
+      </li></ul>
+      <p>A connected session confirms TLS authentication. Neither connection nor frame activity confirms RF delivery or a recipient acknowledgement. A new connection alone does not refresh frame activity.</p>
       <details><summary>Current routes</summary>
         <ul><li v-for="(route, index) in status.routes" :key="index">
           <template v-if="route.direction === 'inbound'">{{ route.peer }} / {{ route.radio }} to local radio {{ route.local_radio }}</template>
