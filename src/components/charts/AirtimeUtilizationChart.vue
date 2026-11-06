@@ -60,6 +60,8 @@ const BUCKET_SECONDS = 60; // 1,440 server-side buckets vs 50,000 raw rows
 const { radioLabel } = useMultiRadioConfig();
 const packetStore = usePacketStore();
 const systemStore = useSystemStore();
+const rfReceiveAge = (radioId: string) =>
+  systemStore.stats?.rf_receive_ages?.find((row) => row.radio_id === radioId)?.seconds_since_last_rx;
 const { profiles: configProfiles } = useRadioProfiles();
 
 const panels = ref<RadioPanelData[]>([]);
@@ -275,6 +277,7 @@ defineExpose({ panels, fetchChartData });
         v-for="panel in panels"
         :key="panel.radioId"
         :radio-id="isMultiPanel ? radioLabel(panel.radioId) : null"
+        :last-rf-receive-age="rfReceiveAge(panel.radioId)"
         :frequency="panelHeading(panel).frequency"
         :modulation="panelHeading(panel).modulation"
         :modulation-detail="panelHeading(panel).modulationDetail"

@@ -685,3 +685,45 @@ describe('RadioAirtimePanel crosshair', () => {
     }
   });
 });
+
+describe('passive RF receive age', () => {
+  it('keeps each receive age on its radio and updates from existing vitals', async () => {
+    seedStats({
+      radio_profiles: [
+        { radio_id: 'local', ...LOCAL_PROFILE },
+        { radio_id: 'link', ...LINK_PROFILE },
+      ],
+      rf_receive_ages: [
+        { radio_id: 'link', seconds_since_last_rx: 3605 },
+        { radio_id: 'local', seconds_since_last_rx: 12 },
+      ],
+    });
+    respond({
+      bucket_seconds: 60, buckets: [], rx_total: 0, tx_total: 0,
+      radios: [
+        { radio_id: 'local', profile: LOCAL_PROFILE, buckets: [], rx_total: 0, tx_total: 0 },
+        { radio_id: 'link', profile: LINK_PROFILE, buckets: [], rx_total: 0, tx_total: 0 },
+      ],
+    });
+    const wrapper = await mountChart();
+    const panels = wrapper.findAllComponents(RadioAirtimePanel);
+    expect(panels[0].text()).toContain('Last RF receive: 12s ago');
+    expect(panels[1].text()).toContain('Last RF receive: 1h ago');
+    useSystemStore().updateRealtimeStats({ version: 'test', core_version: 'test', rf_receive_ages: [
+      { radio_id: 'local', seconds_since_last_rx: 17 },
+      { radio_id: 'link', seconds_since_last_rx: null },
+    ] });
+    await flushPromises();
+    expect(panels[0].text()).toContain('Last RF receive: 17s ago');
+    expect(panels[1].text()).toContain('Last RF receive: None since restart');
+  });
+
+  it.each([[0, '0s ago'], [59, '59s ago'], [60, '1m ago'], [86400, '1d ago']])(
+    'formats a receive age of %i seconds', (age, expected) => {
+      const wrapper = mount(RadioAirtimePanel, { props: {
+        samples: [], yAxisMax: 1, isLoading: false, lastRfReceiveAge: age,
+      } });
+      expect(wrapper.text()).toContain(`Last RF receive: ${expected}`);
+    },
+  );
+});

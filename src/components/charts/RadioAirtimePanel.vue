@@ -16,6 +16,7 @@ defineOptions({ name: 'RadioAirtimePanel' });
 const props = defineProps<{
   /** Radio id, shown as the heading when the node has more than one radio */
   radioId?: string | null;
+  lastRfReceiveAge?: number | null;
   /** Frequency line, already formatted (e.g. "869.618 MHz") */
   frequency?: string | null;
   /** Modulation line, already formatted (e.g. "SF8 · 62.5 kHz · CR 4/8") */
@@ -119,6 +120,16 @@ const onPointerLeave = () => {
 };
 
 const hasHeading = computed(() => Boolean(props.radioId));
+const lastRfReceiveText = computed(() => {
+  const age = props.lastRfReceiveAge;
+  if (age === null) return 'None since restart';
+  if (age === undefined || !Number.isFinite(age)) return 'Unavailable';
+  const seconds = Math.max(0, Math.floor(age));
+  if (seconds < 60) return `${seconds}s ago`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  return `${Math.floor(seconds / 86400)}d ago`;
+});
 const hasActivity = computed(() => props.samples.some((s) => s.rxUtil > 0 || s.txUtil > 0));
 const canvasLabel = computed(() =>
   props.radioId
@@ -293,6 +304,14 @@ defineExpose({ drawChart });
         Radio airtime profile unavailable
       </p>
     </header>
+
+    <p
+      v-if="lastRfReceiveAge !== undefined"
+      class="text-xs text-content-secondary dark:text-content-muted mb-2"
+      data-testid="last-rf-receive"
+    >
+      Last RF receive: {{ lastRfReceiveText }}
+    </p>
 
     <div class="flex items-center gap-4 lg:gap-6 mb-3 lg:mb-4">
       <div class="flex items-center gap-2">

@@ -239,6 +239,8 @@ export interface SystemStats {
   noise_floor_dbm?: number;
   /** The other radios' latest samples; present only on a node with two or more. */
   noise_floor_radios?: Array<{ radio_id: string; noise_floor_dbm: number }>;
+  /** Physical raw RF reception only; null until this radio hears RF after restart. */
+  rf_receive_ages?: Array<{ radio_id: string; seconds_since_last_rx: number | null }>;
   utilization_percent?: number;
   /** Carried by the WS vitals broadcast; over HTTP the mode lives in config. */
   mode?: 'forward' | 'monitor' | 'no_tx';

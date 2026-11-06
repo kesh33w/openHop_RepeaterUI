@@ -324,6 +324,7 @@ export const useSystemStore = defineStore('system', () => {
       // Update only the dynamic fields that change frequently
       if (data.uptime_seconds !== undefined) stats.value.uptime_seconds = data.uptime_seconds;
       if (data.noise_floor_dbm !== undefined) stats.value.noise_floor_dbm = data.noise_floor_dbm;
+      if (data.rf_receive_ages !== undefined) stats.value.rf_receive_ages = data.rf_receive_ages;
       if (data.modem_disconnected !== undefined) {
         stats.value.modem_disconnected = data.modem_disconnected;
       }
