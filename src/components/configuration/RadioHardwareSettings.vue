@@ -1809,7 +1809,7 @@ watch(
             @change="selectWorkingRadio(($event.target as HTMLSelectElement).value)"
           >
             <option v-for="opt in workingRadioOptions" :key="opt.id" :value="opt.id">
-              {{ opt.id }}{{ opt.isDefault ? ' (default TX)' : '' }} — {{ opt.radio_type }}
+              {{ opt.label }}{{ opt.isDefault ? ' (default TX)' : '' }} — {{ opt.radio_type }}
             </option>
           </select>
         </div>
@@ -1858,7 +1858,7 @@ watch(
               class="cfg-select mt-1"
             >
               <option v-for="opt in workingRadioOptions" :key="`def-${opt.id}`" :value="opt.id">
-                {{ opt.id }}
+                {{ opt.label }}
               </option>
             </select>
             <span v-else class="block text-content-primary font-mono text-sm mt-1">{{ defaultRadioId }}</span>

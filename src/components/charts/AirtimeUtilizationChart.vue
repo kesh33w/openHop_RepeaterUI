@@ -38,6 +38,7 @@ import { ref, onMounted, onBeforeUnmount, nextTick, computed, watch } from 'vue'
 import { streamingGet } from '@/utils/streamingFetch';
 import { usePacketStore } from '@/stores/packets';
 import { useRadioProfiles } from '@/composables/useRadioProfiles';
+import { useMultiRadioConfig } from '@/composables/useMultiRadioConfig';
 import { useSystemStore } from '@/stores/system';
 import RadioAirtimePanel from '@/components/charts/RadioAirtimePanel.vue';
 import { useManagedPolling } from '@/composables/useManagedPolling';
@@ -56,6 +57,7 @@ defineOptions({ name: 'AirtimeUtilizationChart' });
 const WINDOW_HOURS = 24;
 const BUCKET_SECONDS = 60; // 1,440 server-side buckets vs 50,000 raw rows
 
+const { radioLabel } = useMultiRadioConfig();
 const packetStore = usePacketStore();
 const systemStore = useSystemStore();
 const { profiles: configProfiles } = useRadioProfiles();
@@ -230,7 +232,7 @@ const panelHeading = (panel: RadioPanelData) => ({
 
 const panelSummary = (panel: RadioPanelData) => {
   const modulation = formatModulationDetail(panel.profile);
-  const identity = isMultiPanel.value ? `Radio ${panel.radioId}` : 'Radio';
+  const identity = isMultiPanel.value ? `Radio ${radioLabel(panel.radioId)}` : 'Radio';
   return (
     `${identity}${modulation ? `, ${modulation}` : ''}. ` +
     `${panel.rxTotal} received, ${panel.txTotal} transmitted in the last ${WINDOW_HOURS} hours. ` +
@@ -272,7 +274,7 @@ defineExpose({ panels, fetchChartData });
       <RadioAirtimePanel
         v-for="panel in panels"
         :key="panel.radioId"
-        :radio-id="isMultiPanel ? panel.radioId : null"
+        :radio-id="isMultiPanel ? radioLabel(panel.radioId) : null"
         :frequency="panelHeading(panel).frequency"
         :modulation="panelHeading(panel).modulation"
         :modulation-detail="panelHeading(panel).modulationDetail"

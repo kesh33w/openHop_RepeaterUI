@@ -159,10 +159,15 @@ export function useMultiRadioConfig() {
     }
   })
 
+  function radioLabel(id: string): string {
+    const label = radios.value.find((radio) => radio.id === id)?.label
+    return typeof label === 'string' && label.trim() ? label.trim() : id
+  }
+
   const radioOptions = computed(() =>
     radios.value.map((r) => ({
       id: r.id,
-      label: r.id,
+      label: radioLabel(r.id),
       radio_type: String(r.radio_type ?? 'unknown'),
       isDefault: r.id === defaultRadioId.value,
     })),
@@ -195,6 +200,7 @@ export function useMultiRadioConfig() {
     activeRadioAirConfig,
     activeHardware,
     radioOptions,
+    radioLabel,
     txMode,
     repeatOnIngress,
     originTx,

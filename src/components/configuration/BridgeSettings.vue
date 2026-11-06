@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import ApiService from '@/utils/api';
+import { useMultiRadioConfig } from '@/composables/useMultiRadioConfig';
 import InternetLinkSettings from './InternetLinkSettings.vue';
+const { radioLabel } = useMultiRadioConfig();
 const internetLink = ref<InstanceType<typeof InternetLinkSettings> | null>(null);
 type Mapping = { source_radio: string; target_radio: string; source_channel: string; target_channel: string };
 type DirectRoute = { source_radio: string; target_radio: string };
@@ -84,7 +86,7 @@ onMounted(load);
         <label>Origin home radio
           <select v-model="settings.origin_home" data-testid="origin-home" :required="settings.enabled">
             <option value="">Select a radio</option>
-            <option v-for="id in radios" :key="id" :value="id">{{ id }}</option>
+            <option v-for="id in radios" :key="id" :value="id">{{ radioLabel(id) }}</option>
           </select>
         </label>
         <p>Choose where messages sent by OpenHop originate. Each companion also needs its own home radio on the Companions page. A channel mapping may then forward the message to the other side.</p>
@@ -101,9 +103,9 @@ onMounted(load);
         <button type="button" @click="channels.push({name:'',key:'',saved:false}); isEditing = true">Add channel</button>
         <h3>Mappings</h3>
         <div v-for="(mapping,index) in settings.mappings" :key="index" class="mapping-row">
-          <label>Source radio <select v-model="mapping.source_radio" required><option v-for="id in radios" :key="id">{{ id }}</option></select></label>
+          <label>Source radio <select v-model="mapping.source_radio" required><option v-for="id in radios" :key="id" :value="id">{{ radioLabel(id) }}</option></select></label>
           <label>Source channel <select v-model="mapping.source_channel" required><option v-for="c in channels" :key="c.name">{{ c.name }}</option></select></label>
-          <label>Destination radio <select v-model="mapping.target_radio" required><option v-for="id in radios" :key="id">{{ id }}</option></select></label>
+          <label>Destination radio <select v-model="mapping.target_radio" required><option v-for="id in radios" :key="id" :value="id">{{ radioLabel(id) }}</option></select></label>
           <label>Destination channel <select v-model="mapping.target_channel" required><option v-for="c in channels" :key="c.name">{{ c.name }}</option></select></label>
           <button type="button" @click="settings.mappings.splice(index,1); isEditing = true">Remove mapping</button>
         </div>
@@ -112,8 +114,8 @@ onMounted(load);
         <p>Disabled unless a route is added. On a configured ingress, a direct path naming this bridge as its next hop means cross to the paired radio. The bridge forwards eligible encrypted packets without decrypting them. Both endpoints need known contact paths for the forward and reverse directions. Add a reverse route for replies and acknowledgements.</p>
         <p>Flooded direct messages and unknown reverse-path discovery do not cross. The encrypted TXT_MSG subtype is opaque to the bridge; this is not content filtering or individual sender authentication.</p>
         <div v-for="(route,index) in settings.direct_routes" :key="index" class="direct-route-row">
-          <label>Ingress radio <select v-model="route.source_radio" required><option value="">Select a radio</option><option v-for="id in radios" :key="id" :value="id">{{ id }}</option></select></label>
-          <label>Outgoing radio <select v-model="route.target_radio" required><option value="">Select a radio</option><option v-for="id in radios" :key="id" :value="id">{{ id }}</option></select></label>
+          <label>Ingress radio <select v-model="route.source_radio" required><option value="">Select a radio</option><option v-for="id in radios" :key="id" :value="id">{{ radioLabel(id) }}</option></select></label>
+          <label>Outgoing radio <select v-model="route.target_radio" required><option value="">Select a radio</option><option v-for="id in radios" :key="id" :value="id">{{ radioLabel(id) }}</option></select></label>
           <button type="button" @click="settings.direct_routes?.splice(index,1); isEditing = true">Remove direct route</button>
         </div>
         <button type="button" @click="addDirectRoute">Add direct route</button>

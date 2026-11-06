@@ -352,7 +352,7 @@ defineExpose({ requestLeave, isEditing });
           @change="selectRadio(($event.target as HTMLSelectElement).value)"
         >
           <option v-for="opt in radioOptions" :key="opt.id" :value="opt.id">
-            {{ opt.id }}{{ opt.isDefault ? ' (default)' : '' }} — {{ opt.radio_type }}
+            {{ opt.label }}{{ opt.isDefault ? ' (default)' : '' }} — {{ opt.radio_type }}
           </option>
         </select>
       </div>

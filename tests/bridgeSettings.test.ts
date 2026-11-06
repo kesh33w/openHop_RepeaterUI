@@ -1,10 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createPinia, setActivePinia } from 'pinia';
+import { useSystemStore } from '@/stores/system';
 import { flushPromises, mount } from '@vue/test-utils';
 import BridgeSettings from '@/components/configuration/BridgeSettings.vue';
 import ApiService from '@/utils/api';
 vi.mock('@/components/configuration/InternetLinkSettings.vue', () => ({ default: { template: '<div />' } }));
 vi.mock('@/utils/api', () => ({default:{get:vi.fn(),post:vi.fn()}}));
 beforeEach(() => {
+  setActivePinia(createPinia());
   vi.resetAllMocks();
   vi.mocked(ApiService.get).mockResolvedValue({success:true,data:{settings:{enabled:false,channels:{Public:'*** REDACTED ***'},mappings:[],echo_database:'/tmp/echo.sqlite'},radio_ids:['a','b']}});
   vi.mocked(ApiService.post).mockResolvedValue({success:true,data:{restart_required:true}});
@@ -109,5 +112,20 @@ it('loads the real disabled Pi response when optional collections are omitted', 
   expect(wrapper.text()).not.toContain('Bridge settings could not be loaded');
   expect(wrapper.find('form').exists()).toBe(true);
   expect(wrapper.get('[data-testid=origin-home]').text()).toContain('host-rf');
+  wrapper.unmount();
+});
+
+
+it('shows configured radio labels while retaining route IDs in saved mappings', async () => {
+  Object.assign(useSystemStore(), {stats:{radios:[{id:'host-rf',label:'Sacramento'},{id:'bay'}]}});
+  vi.mocked(ApiService.get).mockResolvedValue({success:true,data:{settings:{enabled:true,origin_home:'host-rf',channels:{Public:'*** REDACTED ***'},mappings:[{source_radio:'bay',target_radio:'host-rf',source_channel:'Public',target_channel:'Public'}]},radio_ids:['host-rf','bay']}});
+  const wrapper=mount(BridgeSettings); await flushPromises();
+  const options=wrapper.get('[data-testid=origin-home]').findAll('option');
+  expect(options.find(o=>o.text()==='Sacramento')?.element.value).toBe('host-rf');
+  const destination=wrapper.findAll<HTMLSelectElement>('.mapping-row select')[2]!;
+  expect(destination.element.selectedOptions[0]?.textContent).toBe('Sacramento');
+  expect(destination.element.value).toBe('host-rf');
+  await wrapper.get('form').trigger('submit'); await flushPromises();
+  expect(ApiService.post).toHaveBeenCalledWith('/update_bridge_settings',expect.objectContaining({origin_home:'host-rf',mappings:[expect.objectContaining({target_radio:'host-rf'})]}));
   wrapper.unmount();
 });
