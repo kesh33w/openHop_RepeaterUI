@@ -1,114 +1,78 @@
-# openHop Repeater UI
+# Kesh's OpenHop Repeater UI
 
-Web dashboard for [openHop Repeater](https://github.com/openhop-dev/openhop_repeater) — monitor and manage your openHop repeater entirely from the browser.
+This is the Vue 3 and TypeScript dashboard for [Kesh's OpenHop bridge](https://github.com/kesh33w/kesh-openhop-bridge). The `kesh/bridge` branch extends [OpenHop Repeater UI](https://github.com/openhop-dev/openHop_RepeaterUI) with channel-bridge settings, companion home radios and optional iLink controls.
 
-Built with **Vue 3**, **TypeScript**, and **TailwindCSS**. This repository holds the standalone UI source; it builds directly into the repeater project and is served by its embedded web server. Keeping the frontend separate keeps the repeater codebase lean and makes UI contributions easier.
+Use it with the matching [Repeater fork](https://github.com/kesh33w/openhop_repeater/tree/kesh/bridge). A standalone frontend cannot provide the bridge or Internet Link APIs.
 
-## Documentation
+## Bridge controls
 
-Developer reference for the frontend is in [`docs/`](docs/README.md). It covers the data service architecture, design token system, shared UI components, z-index layering scale, and architecture decision records for significant design choices.
+The Bridge page configures directional channel mappings, explicit-path direct-message routes, the origin home radio and queue limits. Companions have their own home-radio assignments on the Companions page.
 
-## Contributing
+- Add a reverse mapping or route when replies need to cross back.
+- Stored channel keys never come back from the settings API. Leave a saved channel's replacement key blank to keep it.
+- Saving bridge settings writes the configuration. It does not restart the service or transmit a packet. Restart OpenHop separately to apply those settings.
+- Internet Link traffic limits apply immediately when the listener is running. They do not require a restart.
 
-Pull requests are welcome — please target the **dev** branch.
+Internet Link shows approved peers, routes, connection state and the age of the last valid inbound frame. A connected session confirms TLS authentication. Neither connection state nor frame activity proves RF delivery or a recipient acknowledgment. Endpoint addresses, trust, peer approvals and enrollment permissions remain in the host configuration.
 
-## Features
+## Develop locally
 
-- **Dashboard** — real-time stats, packet charts, and airtime utilisation at a glance
-- **Neighbors** — interactive network map (Leaflet) with signal-quality indicators and a sortable neighbor table
-- **Terminal** — full xterm.js console backed by a command registry (status, identities, keys, neighbors, ACL, rooms, and more)
-- **Configuration** — radio settings, duty cycle, transport keys, web settings, LetsMesh, backup/restore, API tokens, and advert management
-- **Sessions & Companions** — view and manage active sessions and companion devices
-- **Statistics & Logs** — historical packet data, system metrics, and a searchable log viewer
-- **Room Servers** — overview of connected room servers
-- **CAD Calibration** — channel-activity-detection tuning tools
-- **Real-time updates** — WebSocket packet feed with automatic reconnection
-- **Authentication** — JWT-based login with token refresh and a guided first-boot setup wizard
-
-## Maps — no account or API key required
-
-All maps (Neighbors, neighbor details, and the location picker) use the same theme-aware basemap:
-
-- **Dark:** [OpenFreeMap Dark](https://tiles.openfreemap.org/styles/dark), rendered by MapLibre GL through the Leaflet bridge.
-- **Light:** [OpenStreetMap standard raster tiles](https://tile.openstreetmap.org/{z}/{x}/{y}.png), rendered directly by Leaflet.
-
-Markers, links, clustering and location selection remain Leaflet interactions. Switching themes preserves the viewport and overlays. If WebGL initialization or vector-map loading fails, the map falls back to OpenStreetMap raster tiles. Closing a map releases its renderer and theme observer.
-
-Maps require browser internet access; they are not offline maps. Attribution remains visible on desktop and mobile. Standard OSM tiles are best-effort and subject to the [tile usage policy](https://operations.osmfoundation.org/policies/tiles/): preserve browser caching and Referer headers, and do not bulk-download or prefetch for offline use. No provider key is requested or sent by this UI; legacy backend configuration is left untouched.
-
-The MapLibre worker is bundled through Vite's `?worker&url` import. Deployment must include the complete generated asset directory, including the hashed worker, not just the main JavaScript chunk.
-
-## Prerequisites
-
-- **Node.js** 20 or later
-- A running [openHop Repeater](https://github.com/openhop-dev/openhop_repeater) backend
-
-## Quick Start
+Use Node.js 22.12 or later in the Node 22 series and the checked-in package lock. Start a compatible backend separately, then run:
 
 ```sh
-npm install
-cp .env.example .env.local   # point VITE_DEV_API_URL at your backend
+git clone --branch kesh/bridge --single-branch https://github.com/kesh33w/openHop_RepeaterUI.git
+cd openHop_RepeaterUI
+npm ci
+cp .env.example .env.local
 npm run dev
 ```
 
-The Vite dev server proxies `/api` and `/auth` requests to the URL set in `VITE_DEV_API_URL`.
+Set `VITE_DEV_API_URL` in `.env.local` to your backend URL before starting Vite. The default is `http://localhost:8000`. The dev server proxies `/api` and `/auth` to that backend; WebSocket code uses the same setting. Use an account on that backend to sign in. Do not put channel keys or backend credentials in frontend environment variables.
 
-## Production Build
+The hub's [current component manifest](https://github.com/kesh33w/kesh-openhop-bridge/blob/kesh/openhop-bridge/components.current.json) pins a dated integration snapshot. It is separate from the original release manifest and may precede the latest branch tips.
+
+## Check and build
 
 ```sh
-npm run build
+npm run type-check
+npm run test:unit -- --run --maxWorkers=2
+npm run build-only
 ```
 
-The compiled output is written to `../openhop-repeater/repeater/web/html` and served directly by the repeater.
+`npm run build` combines type checking and the production build. Vite writes to `../openhop_repeater/repeater/web/html` and empties that directory first. Check that the sibling path points to the intended Repeater checkout before building. This is an output directory, not a command to deploy or restart a running Pi.
 
-## Scripts
+To keep the build inside the UI checkout instead:
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start Vite dev server with HMR |
-| `npm run build` | Type-check and build for production |
-| `npm run preview` | Preview the production build locally |
-| `npm run test:unit` | Run unit tests (Vitest) |
-| `npm run lint` | Lint and auto-fix with ESLint |
-| `npm run format` | Format source with Prettier |
+```sh
+npm run build-only -- --outDir dist
+```
 
-## Environment Variables
+Deploy the complete generated asset directory when updating a frontend, including the hashed MapLibre worker. Copying only the main JavaScript file breaks map loading.
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `VITE_DEV_API_URL` | `http://localhost:8000` | Backend URL used by the Vite dev proxy and WebSocket connections |
+`npm run api:generate` regenerates TypeScript from a sibling Repeater's `repeater/web/openapi.yaml`. It checks `../openhop_repeater` first, then `../openhop-repeater`. `npm run api:check` also fails if generation changes the tracked client. Both commands need that backend checkout.
 
-## License
+`npm run lint` and `npm run format` rewrite source files. They are not read-only checks.
 
-[MIT](LICENSE)
+## Where to make changes
 
----
+| Path | Purpose |
+| --- | --- |
+| [src/components/configuration/BridgeSettings.vue](src/components/configuration/BridgeSettings.vue) | Channel mappings, keys, home radio and direct routes |
+| [src/components/configuration/InternetLinkSettings.vue](src/components/configuration/InternetLinkSettings.vue) | Link status and live traffic limits |
+| [src/utils/api.ts](src/utils/api.ts) | API client |
+| [src/generated/openapi.ts](src/generated/openapi.ts) | Generated backend types |
+| [tests/bridgeSettings.test.ts](tests/bridgeSettings.test.ts) | Bridge validation and save behavior |
+| [tests/internetLink.test.ts](tests/internetLink.test.ts) | Link controls, status and unsaved changes |
+| [vite.config.ts](vite.config.ts) | Development proxy and build output |
 
-## A note on AI-assisted development
+## Maps
 
-AI-assisted development and vibe coding are not the same thing, and the
-distinction matters for a project with real standards.
+Dark mode uses [OpenFreeMap](https://tiles.openfreemap.org/styles/dark) through MapLibre and Leaflet. Light mode uses [OpenStreetMap tiles](https://tile.openstreetmap.org/{z}/{x}/{y}.png). The UI falls back to raster tiles if vector-map loading or WebGL fails.
 
-**Vibe coding** is the common pattern of giving an AI model a rough instruction
-and seeing what comes out. It is fast and sometimes useful, but the output is
-inconsistent: models will hallucinate APIs, invent abstractions, ignore dark
-mode, and write code that looks plausible but violates the conventions of the
-codebase — often silently.
+Maps need browser internet access. No provider account or API key is required. Keep the attribution visible and follow the [OpenStreetMap tile policy](https://operations.osmfoundation.org/policies/tiles/), including its caching and offline-download restrictions.
 
-**AI-assisted development** is different. It is a development-aware engineer
-using AI to make targeted, standards-aware edits — with enough context and
-constraint that the model operates within the rules of the project rather than
-around them. Used this way, AI can produce genuinely high-quality contributions
-at pace.
+## Upstream and license
 
-`CLAUDE.md` in the project root is what makes the latter possible here. Claude
-Code reads it automatically at the start of every session. It encodes the rules
-that matter most to this codebase — never use raw colour literals, never bypass
-DataService, never write `bg-primary text-white`, always teleport modals, use
-the correct button classes in the correct contexts — so that if an engineer or
-the model itself requests an edit that would violate those standards, it is
-flagged immediately rather than silently applied.
+OpenHop Repeater UI supplies the original dashboard, authentication, terminal, maps and other management pages. This fork adds the controls described above. The upstream project and its contributors retain their attribution under the [MIT License](LICENSE).
 
-The file is not Claude-specific in spirit. It captures exactly the same things
-a senior contributor would push back on in a code review. It just moves that
-review to before the code is written, not after.
+Report fork-specific problems in [this repository](https://github.com/kesh33w/openHop_RepeaterUI/issues). Include the UI and backend commits, browser and reproduction steps. Remove credentials and channel keys from screenshots and logs.
