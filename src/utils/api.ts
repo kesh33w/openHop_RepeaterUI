@@ -140,6 +140,7 @@ export interface ApiResponse<T = unknown> {
   success?: boolean;
   data?: T;
   error?: string;
+  outcome?: 'unknown';
   message?: string;
   count?: number;
   filters?: Record<string, unknown>;

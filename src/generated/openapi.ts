@@ -10,6 +10,202 @@
  * ---------------------------------------------------------------
  */
 
+export interface BridgeDirection {
+  source_radio: string;
+  target_radio: string;
+  /** @default true */
+  enabled?: boolean;
+}
+
+export interface BridgeMapping {
+  source_radio: string;
+  target_radio: string;
+  /** @default true */
+  enabled?: boolean;
+  source_channel: string;
+  target_channel: string;
+}
+
+export interface BridgeTrafficLimits {
+  /**
+   * @min 1
+   * @max 600
+   * @default 12
+   */
+  per_minute?: number;
+  /**
+   * @min 1
+   * @max 100
+   * @default 3
+   */
+  burst?: number;
+  /**
+   * @min 1
+   * @max 1000
+   * @default 16
+   */
+  max_pending_per_direction?: number;
+}
+
+export interface BridgeConfiguration {
+  enabled?: boolean;
+  paused?: boolean;
+  origin_home?: string;
+  disabled_channels?: string[];
+  /** Responses contain only *** REDACTED ***. Updates may retain that marker for an existing channel or replace with 32/64 hexadecimal characters. */
+  channels?: Record<string, string>;
+  mappings?: BridgeMapping[];
+  direct_routes?: BridgeDirection[];
+  /**
+   * Distinct separates native local hops from a public crossing route identifier. New protocols require distinct. Changing mode requires restart and rediscovery of cross-network contact paths.
+   * @default "legacy"
+   */
+  peer_routing?: 'legacy' | 'distinct';
+  /** New protocols require peer_routing distinct; they are rejected in legacy mode. */
+  protocols?: {
+    /** @default false */
+    discovery?: boolean;
+    /** @default false */
+    repeater_admin?: boolean;
+    /** @default false */
+    trace?: boolean;
+  };
+  traffic_limits?: BridgeTrafficLimits;
+  /** Host-configured independent observer allowlist. The settings API rejects this field in updates; no secret credentials are included. */
+  reception_evidence?: object;
+  /** Host-managed absolute path; cannot be changed by this endpoint. */
+  echo_database?: string;
+  echo_ttl_seconds?: number;
+  echo_capacity?: number;
+  /**
+   * @min 1
+   * @max 1000
+   */
+  max_pending_crossings?: number;
+  /**
+   * @min 1
+   * @max 120
+   */
+  queue_ttl_seconds?: number;
+  local_policy?: object;
+  crossing_policy?: object;
+}
+
+export interface BridgeRunningState {
+  /**
+   * Running distinct-mode public routing identifier. It is not a signed endpoint identity or credential; use the prefix matching the route width.
+   * @pattern ^[0-9a-f]{64}$
+   */
+  crossing_route_id?: string | null;
+  settings?: BridgeConfiguration;
+  active_settings?: BridgeConfiguration | null;
+  radio_ids?: string[];
+  running?: boolean | null;
+  paused?: boolean;
+  controls_available?: boolean;
+  /** An accepted pause change is still persisting or awaiting runtime publication. Do not submit another control yet. */
+  control_pending?: boolean;
+  restart_required?: boolean | null;
+  pending_crossings?: number;
+}
+
+export interface BridgeDiagnostics {
+  reception?: {
+    enabled?: boolean;
+    window_seconds?: number;
+    meaning?: string;
+    counts?: Record<string, number>;
+    feeds?: {
+      broker?: string;
+      state?: string;
+      accepted?: number;
+      ignored?: number;
+      /** @format date-time */
+      last_report_at?: string | null;
+    }[];
+    recent?: {
+      id?: string;
+      source_radio?: string;
+      target_radio?: string;
+      packet_type?: number;
+      tx_state?: 'pending' | 'tx_confirmed' | 'tx_failed' | 'tx_uncertain';
+      reception_state?: 'waiting' | 'observed' | 'unconfirmed' | 'not_applicable';
+      /** @format date-time */
+      started_at?: string;
+      /** @format date-time */
+      deadline?: string;
+      observers?: {
+        public_key?: string;
+        broker?: string;
+        radio_id?: string;
+        /** @format date-time */
+        observed_at?: string;
+        /** @format date-time */
+        received_at?: string;
+        match?: 'outgoing_bytes' | 'downstream_flood_path' | 'trace_progress';
+        trace_progress?: number;
+      }[];
+    }[];
+  };
+  traffic?: {
+    limits?: BridgeTrafficLimits;
+    directions?: {
+      source_radio?: string;
+      target_radio?: string;
+      pending?: number;
+      admitted?: number;
+      rate_limited?: number;
+      queue_full?: number;
+    }[];
+  };
+}
+
+export interface InternetLinkOptions {
+  /**
+   * @min 0
+   * @exclusiveMin true
+   * @max 5
+   */
+  send_timeout?: number;
+  /**
+   * @min 1
+   * @max 64
+   */
+  max_inflight?: number;
+  /**
+   * @min 1
+   * @max 64
+   */
+  max_rx_tasks?: number;
+}
+
+export interface InternetLinkState {
+  enabled?: boolean;
+  running?: boolean;
+  listening?: boolean;
+  editable?: boolean;
+  enrollment_available?: boolean;
+  listener_port?: number | null;
+  node_id?: string | null;
+  settings?: InternetLinkOptions;
+  active_settings?: InternetLinkOptions | null;
+  packet_ttl_ms?: number;
+  pending_rf?: number;
+  dropped_tasks?: number;
+  transport_failures?: number;
+  peers?: {
+    id?: string;
+    connected?: boolean;
+    last_valid_inbound_frame_age_seconds?: number | null;
+  }[];
+  routes?: {
+    direction?: 'inbound' | 'outbound';
+    peer?: string;
+    radio?: string;
+    local_radio?: string;
+  }[];
+}
+
 /** One snapshot's local, bounded measurement metadata; identity is configured sensor name plus source-path id. */
 export interface SensorMetricDescriptor {
   /** RFC6901 JSON Pointer relative to the plugin's source field mapping (modem stats JSON or parsed VE.Direct text labels). */
@@ -1002,6 +1198,185 @@ export class HttpClient<SecurityDataType = unknown> {
  * - Noise floor monitoring
  */
 export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDataType> {
+  bridgeSettings = {
+    /**
+     * @description Keys are redacted in both views. restart_required compares private running and saved snapshots, including key rotations. A null running or restart_required means the daemon state could not be inspected.
+     *
+     * @tags Bridge
+     * @name BridgeSettingsList
+     * @summary Read saved and running bridge settings
+     * @request GET:/bridge_settings
+     * @secure
+     */
+    bridgeSettingsList: (params: RequestParams = {}) =>
+      this.request<
+        {
+          success: boolean;
+          data?: BridgeRunningState;
+          error?: string;
+        },
+        void
+      >({
+        path: `/bridge_settings`,
+        method: 'GET',
+        secure: true,
+        format: 'json',
+        ...params,
+      }),
+  };
+  updateBridgeSettings = {
+    /**
+     * @description Validates all directions, channel keys and limits before saving. Does not transmit, restart, or apply settings to the running bridge. Preserves the current live pause even if a stale editor submits a different paused value. Use update_bridge_controls for live pause.
+     *
+     * @tags Bridge
+     * @name UpdateBridgeSettingsCreate
+     * @summary Save bridge configuration for restart
+     * @request POST:/update_bridge_settings
+     * @secure
+     */
+    updateBridgeSettingsCreate: (data: BridgeConfiguration, params: RequestParams = {}) =>
+      this.request<
+        {
+          success: boolean;
+          data?: {
+            saved?: boolean;
+            restart_required?: boolean;
+          };
+          error?: string;
+        },
+        void
+      >({
+        path: `/update_bridge_settings`,
+        method: 'POST',
+        body: data,
+        secure: true,
+        type: ContentType.Json,
+        format: 'json',
+        ...params,
+      }),
+  };
+  updateBridgeControls = {
+    /**
+     * @description Persists only the pause flag off the radio loop, then applies it on the daemon loop. Local group repeating and distinct-mode native local routing continue. Legacy direct transit retains crossing-only semantics and has no local fallback while paused. Queued crossings are invalidated on pause; an already-dispatched transmission may finish. Does not apply pending route, key or protocol edits.
+     *
+     * @tags Bridge
+     * @name UpdateBridgeControlsCreate
+     * @summary Pause or resume bridge crossings
+     * @request POST:/update_bridge_controls
+     * @secure
+     */
+    updateBridgeControlsCreate: (
+      data: {
+        paused: boolean;
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<
+        {
+          success: boolean;
+          data?: {
+            saved?: boolean;
+            live_updated?: boolean;
+          };
+          error?: string;
+          /** The accepted operation may still complete; refresh status before another action. */
+          outcome?: 'unknown';
+        },
+        void
+      >({
+        path: `/update_bridge_controls`,
+        method: 'POST',
+        body: data,
+        secure: true,
+        type: ContentType.Json,
+        format: 'json',
+        ...params,
+      }),
+  };
+  bridgeDiagnostics = {
+    /**
+     * @description Bounded process-local diagnostics. Modem-confirmed TX is distinct from reception by an allowlisted independent observer. Neither proves recipient delivery. Missing observation is unconfirmed, not proof of failure.
+     *
+     * @tags Bridge
+     * @name BridgeDiagnosticsList
+     * @summary Read crossing traffic and reception evidence
+     * @request GET:/bridge_diagnostics
+     * @secure
+     */
+    bridgeDiagnosticsList: (params: RequestParams = {}) =>
+      this.request<
+        {
+          success: boolean;
+          data?: BridgeDiagnostics;
+          error?: string;
+        },
+        void
+      >({
+        path: `/bridge_diagnostics`,
+        method: 'GET',
+        secure: true,
+        format: 'json',
+        ...params,
+      }),
+  };
+  internetLink = {
+    /**
+     * @description Secret-free listener, approved peer, route and live traffic-limit status. A connected session and recent inbound frame do not prove RF or recipient delivery.
+     *
+     * @tags Bridge
+     * @name InternetLinkList
+     * @summary Read Internet Link status
+     * @request GET:/internet_link
+     * @secure
+     */
+    internetLinkList: (params: RequestParams = {}) =>
+      this.request<
+        {
+          success: boolean;
+          data?: InternetLinkState;
+          error?: string;
+        },
+        void
+      >({
+        path: `/internet_link`,
+        method: 'GET',
+        secure: true,
+        format: 'json',
+        ...params,
+      }),
+  };
+  updateInternetLink = {
+    /**
+     * @description Requires a running listener. Persists and applies traffic limits without restart; does not edit endpoint addresses, certificates, peers or trust.
+     *
+     * @tags Bridge
+     * @name UpdateInternetLinkCreate
+     * @summary Update live Internet Link traffic limits
+     * @request POST:/update_internet_link
+     * @secure
+     */
+    updateInternetLinkCreate: (data: InternetLinkOptions, params: RequestParams = {}) =>
+      this.request<
+        {
+          success: boolean;
+          data?: {
+            saved?: boolean;
+            live_updated?: boolean;
+            restart_required?: boolean;
+          };
+          error?: string;
+        },
+        void
+      >({
+        path: `/update_internet_link`,
+        method: 'POST',
+        body: data,
+        secure: true,
+        type: ContentType.Json,
+        format: 'json',
+        ...params,
+      }),
+  };
   auth = {
     /**
      * @description Authenticate with username/password and receive JWT token
