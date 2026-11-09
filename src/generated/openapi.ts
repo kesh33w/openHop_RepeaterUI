@@ -12,7 +12,7 @@
 
 /** One snapshot's local, bounded measurement metadata; identity is configured sensor name plus source-path id. */
 export interface SensorMetricDescriptor {
-  /** RFC6901 JSON Pointer relative to the modem stats response. */
+  /** RFC6901 JSON Pointer relative to the plugin's source field mapping (modem stats JSON or parsed VE.Direct text labels). */
   id: string;
   source_path: string;
   /** Exact key in the flat data object; generic keys begin with modem:. */
@@ -691,15 +691,13 @@ export interface ACLClient {
    * @example "admin"
    */
   permissions: 'admin' | 'read_write' | 'read_only' | 'guest';
-  /** Raw permissions byte; the low two bits are the role */
-  permissions_value?: number;
   /**
    * Unix timestamp of last activity
    * @example 1766065148
    */
   last_activity?: number;
   /**
-   * Unix timestamp of last successful login
+   * Unix timestamp of last successful login, 0 if none. Kept across restarts for entries that persist; last_activity resets to 0.
    * @example 1766065146
    */
   last_login_success?: number;
@@ -724,13 +722,32 @@ export interface ACLClient {
    * @example "0xC5"
    */
   identity_hash?: string;
-  /** The client's advertised name, when known */
+  /**
+   * The client's advertised name, from an advert the repeater heard or
+   * else a companion's contact for it; null when neither knows it.
+   * @example "Howl"
+   */
   client_name?: string | null;
-  /** Contact type from the client's advert, when heard */
+  /**
+   * Contact type from the client's advert (e.g. "Chat Node"), when heard
+   * @example "Chat Node"
+   */
   client_type?: string | null;
-  /** Full public key of the identity, unique where the hash is not */
+  /**
+   * Full public key of the identity, unique where the hash is not
+   * @pattern ^[0-9a-fA-F]{64}$
+   */
   identity_pubkey?: string;
-  /** Whether the entry survives a restart */
+  /**
+   * The whole permissions byte; the role is its low two bits
+   * @example 3
+   */
+  permissions_value?: number;
+  /**
+   * Whether the entry is stored and survives a restart. The repeater
+   * stores every entry with permissions, a room server admins only.
+   * @example true
+   */
   persisted?: boolean;
 }
 
@@ -2484,6 +2501,45 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
         ...params,
       }),
   };
+  cadRadios = {
+    /**
+     * @description Read-only radio discovery. Includes default_radio_id, active_radio_id and running; does not perform CAD.
+     *
+     * @tags CAD Calibration
+     * @name CadRadiosList
+     * @summary List physical radios and current CAD settings
+     * @request GET:/cad_radios
+     */
+    cadRadiosList: (params: RequestParams = {}) =>
+      this.request<
+        {
+          success?: boolean;
+          data?: {
+            default_radio_id?: string | null;
+            active_radio_id?: string | null;
+            running?: boolean;
+            radios?: {
+              radio_id?: string;
+              label?: string;
+              supports_cad?: boolean;
+              frequency?: number;
+              spreading_factor?: number;
+              bandwidth?: number;
+              coding_rate?: number;
+              current_cad_peak?: number;
+              current_cad_min?: number;
+              cad_symbol_num?: number;
+            }[];
+          };
+        },
+        any
+      >({
+        path: `/cad_radios`,
+        method: 'GET',
+        format: 'json',
+        ...params,
+      }),
+  };
   cadCalibrationStart = {
     /**
      * @description Begin Channel Activity Detection calibration process
@@ -2495,6 +2551,8 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     cadCalibrationStartCreate: (
       data: {
+        /** Physical radio ID. Omitted or blank selects the default radio; unknown IDs are rejected. */
+        radio_id?: string;
         /**
          * Number of samples to collect
          * @min 1
@@ -2532,10 +2590,18 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @summary Stop CAD calibration
      * @request POST:/cad_calibration_stop
      */
-    cadCalibrationStopCreate: (params: RequestParams = {}) =>
+    cadCalibrationStopCreate: (
+      data?: {
+        /** If supplied, must match the active calibration radio. */
+        radio_id?: string;
+      },
+      params: RequestParams = {},
+    ) =>
       this.request<SuccessResponse, any>({
         path: `/cad_calibration_stop`,
         method: 'POST',
+        body: data,
+        type: ContentType.Json,
         format: 'json',
         ...params,
       }),
@@ -2551,6 +2617,8 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     cadManualCheckCreate: (
       data?: {
+        /** Physical radio ID. Omitted or blank selects the default radio; unknown IDs are rejected. */
+        radio_id?: string;
         /**
          * Number of CAD checks to perform.
          * @min 1
@@ -2632,6 +2700,8 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      */
     saveCadSettingsCreate: (
       data: {
+        /** Physical radio ID. Omitted or blank selects the default radio; unknown IDs are rejected. */
+        radio_id?: string;
         /**
          * CAD peak value
          * @min 0
@@ -2673,10 +2743,17 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @summary CAD calibration SSE stream
      * @request GET:/cad_calibration_stream
      */
-    cadCalibrationStreamList: (params: RequestParams = {}) =>
+    cadCalibrationStreamList: (
+      query?: {
+        /** Physical radio to stream. Replays its latest session; every event identifies its radio. */
+        radio_id?: string;
+      },
+      params: RequestParams = {},
+    ) =>
       this.request<string, any>({
         path: `/cad_calibration_stream`,
         method: 'GET',
+        query: query,
         ...params,
       }),
   };
@@ -3002,6 +3079,93 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
         body: data,
         secure: true,
         type: ContentType.Json,
+        format: 'json',
+        ...params,
+      }),
+  };
+  trace = {
+    /**
+     * @description Send a MeshCore TRACE through the supplied hop hashes. The repeater automatically adds its own hash at both ends. For example, path ["d0"] becomes a closed route [local, "d0", local]. Success requires the final return to the originating repeater, not an overheard intermediate transmission.
+     *
+     * @tags Network Policy
+     * @name TraceCreate
+     * @summary Trace an explicit direct multi-hop path
+     * @request POST:/trace
+     * @secure
+     */
+    traceCreate: (
+      data: {
+        /**
+         * Ordered hops, for example ["d0"]. The local repeater is added at both ends automatically. Each string hop must be exactly 2, 4, or 8 hex characters (optional 0x prefix) to match the hash width. Limit is 62 hops for 1-byte, 62 for 2-byte, and 42 for 4-byte hashes.
+         * @maxItems 62
+         * @minItems 1
+         */
+        path: string[];
+        /** TRACE hash-width exponent; 0=1 byte, 1=2 bytes, 2=4 bytes. */
+        path_hash_mode?: 0 | 1 | 2;
+        /**
+         * @min 1
+         * @max 120
+         * @default 15
+         */
+        timeout?: number;
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<
+        {
+          success: boolean;
+          data: {
+            requested_path: string[];
+            /** Completed closed route including the origin. Hashes come from the matched TRACE payload, not independently discovered identities. */
+            path: string[];
+            /** One raw signed-byte SNR encoding per radio link, including final local reception. Values are stored as unsigned bytes; subtract 256 from values above 127, then divide by 4 for dB. */
+            path_snrs?: number[];
+            rtt_ms: number;
+            snr_db: number;
+            rssi: number;
+            tag: number;
+            path_hash_mode: number;
+          };
+          message?: string;
+          error?: string;
+        },
+        any
+      >({
+        path: `/trace`,
+        method: 'POST',
+        body: data,
+        secure: true,
+        type: ContentType.Json,
+        format: 'json',
+        ...params,
+      }),
+  };
+  traceInfo = {
+    /**
+     * @description Return the local repeater hash for each supported TRACE hash width.
+     *
+     * @tags Network Policy
+     * @name TraceInfoList
+     * @summary Get local TRACE identity hashes
+     * @request GET:/trace_info
+     * @secure
+     */
+    traceInfoList: (params: RequestParams = {}) =>
+      this.request<
+        {
+          success: boolean;
+          data: {
+            hashes: Record<string, string>;
+            path_hash_modes: Record<string, number>;
+          };
+          error?: string;
+        },
+        any
+      >({
+        path: `/trace_info`,
+        method: 'GET',
+        secure: true,
         format: 'json',
         ...params,
       }),
@@ -3704,13 +3868,29 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
               hash?: string;
               /** @example 100 */
               max_clients?: number;
-              /** @example 5 */
+              /**
+               * Entries that logged in or sent a message since
+               * they were loaded. Entries provisioned with
+               * setperm and not yet used are not counted.
+               * @example 5
+               */
               authenticated_clients?: number;
-              /** Set while the stored ACL cannot be read */
+              /**
+               * Set while the stored ACL cannot be read (at
+               * startup, and until a later login or change
+               * reads it): stored entries cannot log in, and
+               * the entries listed are not the stored ones.
+               */
               store_error?: string | null;
-              /** All entries in the ACL, sessions and provisioned */
+              /**
+               * All entries in the ACL, sessions and provisioned
+               * @example 7
+               */
               acl_entries?: number;
-              /** Entries kept across restarts */
+              /**
+               * Entries kept across restarts
+               * @example 2
+               */
               stored_entries?: number;
               /** @example true */
               has_admin_password?: boolean;
@@ -3735,7 +3915,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
   };
   aclClients = {
     /**
-     * @description Get list of authenticated clients in access control list for an identity
+     * @description List the entries in an identity's access control list: sessions from logins, and entries provisioned with setperm or /acl_set_permissions that may not have logged in yet (last_activity 0).
      *
      * @tags ACL
      * @name AclClientsList
@@ -3765,7 +3945,10 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
             clients?: ACLClient[];
             /** Number of clients returned */
             count?: number;
-            /** Identity name to error, for identities whose stored ACL cannot be read */
+            /**
+             * Identity name to error, for identities whose stored ACL
+             * cannot be read now; their list is not the stored one.
+             */
             store_errors?: Record<string, string>;
             /** Filter applied (if any) */
             filter?: {
@@ -3795,20 +3978,22 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
     aclRemoveClientCreate: (
       data: {
         /**
+         * Identity name ("repeater" or a room server's name). Preferred
+         * over identity_hash, which two identities can share. With
+         * neither, the client is removed from every ACL.
+         * @example "repeater"
+         */
+        identity_name?: string;
+        /**
          * Identity hash
          * @pattern ^0x[0-9a-fA-F]{2}$
          * @example "0x42"
          */
         identity_hash?: string;
         /**
-         * Identity name (alternative to hash)
-         * @example "General"
-         */
-        identity_name?: string;
-        /**
-         * Client public key to remove
+         * Client public key to remove. Its stored entry is removed too.
          * @pattern ^[0-9a-fA-F]{64}$
-         * @example "abc123def456..."
+         * @example "03ccf3bb0bed9a5109868a1e33ed020519aab6dbb30e42df3b11a21d21416fff"
          */
         client_pubkey: string;
       },
@@ -3825,7 +4010,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
   };
   aclSetPermissions = {
     /**
-     * @description The web equivalent of the `setperm` CLI command. To remove an entry, use /acl_remove_client.
+     * @description The web equivalent of the `setperm` CLI command. The entry is stored, so the key logs in with a blank password after a restart. A room server stores admins only, as MeshCore firmware does; other roles there last until a restart (`persisted: false`). To remove an entry, use /acl_remove_client.
      *
      * @tags ACL
      * @name AclSetPermissionsCreate
@@ -3842,12 +4027,15 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
         /**
          * Full client public key
          * @pattern ^[0-9a-fA-F]{64}$
+         * @example "03ccf3bb0bed9a5109868a1e33ed020519aab6dbb30e42df3b11a21d21416fff"
          */
         client_pubkey: string;
         /**
-         * Permissions byte. The low two bits are the role: 1 read-only, 2 read-write, 3 admin.
+         * Permissions byte. The low two bits are the role: 1 read-only,
+         * 2 read-write, 3 admin; 0 (guest) is refused here.
          * @min 1
          * @max 255
+         * @example 3
          */
         permissions: number;
       },

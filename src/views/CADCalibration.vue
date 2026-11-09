@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onUnmounted, onMounted, computed } from 'vue';
+import { ref, onUnmounted, onMounted, computed, watch, shallowRef } from 'vue';
 import { ApiService, API_SERVER_URL } from '@/utils/api';
 import { useSystemStore } from '@/stores/system';
 import { getToken } from '@/utils/auth';
@@ -41,7 +41,8 @@ interface RangeInfo {
 }
 
 interface CalibrationUpdate {
-  type: 'status' | 'progress' | 'result' | 'complete' | 'completed' | 'error';
+  radio_id?: string | null;
+  type: 'status' | 'progress' | 'result' | 'complete' | 'completed' | 'stopped' | 'error';
   message?: string;
   results?: {
     best?: CalibrationResult;
@@ -76,9 +77,38 @@ interface LogEvent {
   ts: number;
 }
 
+interface CadRadio {
+  radio_id: string;
+  label: string;
+  frequency: number;
+  spreading_factor: number;
+  bandwidth: number;
+  coding_rate: number;
+  current_cad_peak: number;
+  current_cad_min: number;
+  cad_symbol_num: 1 | 2 | 4 | 8 | 16;
+  supports_cad: boolean;
+}
+const radios = ref<CadRadio[]>([]);
+const selectedRadioId = ref('');
+const defaultRadioId = ref('');
+const radiosLoading = ref(true);
+const starting = ref(false);
+const stopping = ref(false);
+const saving = ref(false);
+let disposed = false;
+let selectionVersion = 0;
+const selectedRadio = computed(() => radios.value.find(r => r.radio_id === selectedRadioId.value));
+const selectionLocked = computed(() => radiosLoading.value || starting.value || stopping.value ||
+  saving.value || isRunning.value || manualCheckRunning.value || manualCheckBusy.value);
+const operationDisabled = computed(() => selectionLocked.value || !selectedRadio.value?.supports_cad);
+function radioLabel(radio: CadRadio) {
+  return `${radio.label || radio.radio_id} · ${(radio.frequency / 1000000).toFixed(3)} MHz · SF${radio.spreading_factor}`;
+}
+
 const isRunning = ref(false);
 const startTime = ref<number | null>(null);
-const eventSource = ref<EventSource | null>(null);
+const eventSource = shallowRef<EventSource | null>(null);
 const calibrationData = ref<Record<string, CalibrationResult>>({});
 const bestCalibrationResult = ref<CalibrationResult | null>(null);
 const backendRecommendedResult = ref<CalibrationResult | null>(null);
@@ -369,10 +399,11 @@ function clampInt(value: number, min: number, max: number) {
 }
 
 function openManualCadModal() {
+  if (operationDisabled.value) return;
   const source = bestCalibrationResult.value || topCandidate.value;
-  manualDetPeak.value = clampInt(source?.det_peak ?? 22, 0, 255);
-  manualDetMin.value = clampInt(source?.det_min ?? 10, 0, 255);
-  manualCadSymbolNum.value = 2;
+  manualDetPeak.value = clampInt(source?.det_peak ?? selectedRadio.value?.current_cad_peak ?? 22, 0, 255);
+  manualDetMin.value = clampInt(source?.det_min ?? selectedRadio.value?.current_cad_min ?? 10, 0, 255);
+  manualCadSymbolNum.value = selectedRadio.value?.cad_symbol_num ?? 2;
   manualCadTimeoutMs.value = 500;
   manualIntervalMs.value = 250;
   manualAttempts.value = 0;
@@ -385,9 +416,9 @@ function openManualCadModal() {
 
 function resetManualCadInputs() {
   const source = bestCalibrationResult.value || topCandidate.value;
-  manualDetPeak.value = clampInt(source?.det_peak ?? 22, 0, 255);
-  manualDetMin.value = clampInt(source?.det_min ?? 10, 0, 255);
-  manualCadSymbolNum.value = 2;
+  manualDetPeak.value = clampInt(source?.det_peak ?? selectedRadio.value?.current_cad_peak ?? 22, 0, 255);
+  manualDetMin.value = clampInt(source?.det_min ?? selectedRadio.value?.current_cad_min ?? 10, 0, 255);
+  manualCadSymbolNum.value = selectedRadio.value?.cad_symbol_num ?? 2;
   manualCadTimeoutMs.value = 500;
   manualIntervalMs.value = 250;
 }
@@ -403,6 +434,8 @@ function stopManualCadCheck() {
 async function runManualCadCheckIteration() {
   if (!manualCheckRunning.value || manualCheckBusy.value) return;
   manualCheckBusy.value = true;
+  const version = selectionVersion;
+  const radioId = selectedRadioId.value;
   try {
     const result = await ApiService.post<{
       attempts: number;
@@ -413,6 +446,7 @@ async function runManualCadCheckIteration() {
       detection_rate: number;
       detected: boolean;
     }>('/cad-manual-check', {
+      radio_id: radioId,
       det_peak: clampInt(manualDetPeak.value, 0, 255),
       det_min: clampInt(manualDetMin.value, 0, 255),
       cad_symbol_num: manualCadSymbolNum.value,
@@ -420,6 +454,7 @@ async function runManualCadCheckIteration() {
       apply_live: manualApplyLive.value,
       samples: 1,
     });
+    if (disposed || version !== selectionVersion) return;
     const payload = result.data;
     if (!result.success || !payload) {
       throw new Error(result.error || 'Manual CAD check failed');
@@ -434,6 +469,7 @@ async function runManualCadCheckIteration() {
       manualRecentOutcomes.value.shift();
     }
   } catch (error) {
+    if (disposed || version !== selectionVersion) return;
     manualErrors.value += 1;
   } finally {
     manualCheckBusy.value = false;
@@ -447,7 +483,7 @@ async function runManualCadCheckIteration() {
 }
 
 function startManualCadCheck() {
-  if (manualCheckRunning.value) return;
+  if (operationDisabled.value) return;
   manualAttempts.value = 0;
   manualDetections.value = 0;
   manualTimeouts.value = 0;
@@ -458,6 +494,7 @@ function startManualCadCheck() {
 }
 
 async function startCalibrationInternal(forceStart = false) {
+  if (operationDisabled.value) return;
   if (knownSignalPresent.value && !forceStart) {
     activityPromptContext.value = 'prestart';
     showActivityPrompt.value = true;
@@ -465,60 +502,39 @@ async function startCalibrationInternal(forceStart = false) {
   }
   showActivityPrompt.value = false;
   showNoDetectionGuidance.value = false;
-  const samples = 10;
-  const delay = 50;
-
+  clearRadioResults();
+  starting.value = true;
+  isRunning.value = true;
+  systemStore.setCadCalibrationRunning(true);
+  const version = selectionVersion;
+  const radioId = selectedRadioId.value;
+  startTime.value = Date.now();
+  elapsedTimer = setInterval(() => {
+    if (startTime.value) elapsedTime.value = Math.floor((Date.now() - startTime.value) / 1000);
+  }, 1000);
   try {
     const result = await ApiService.post('/cad-calibration-start', {
-      samples,
-      delay,
+      radio_id: radioId,
+      samples: 10,
+      delay: 50,
       known_signal_present: knownSignalPresent.value,
     });
-
-    if (result.success) {
-      isRunning.value = true;
-      startTime.value = Date.now();
-      systemStore.setCadCalibrationRunning(true);
-
-      calibrationData.value = {};
-      bestCalibrationResult.value = null;
-      backendRecommendedResult.value = null;
-
-      showRangeInfo.value = false;
-      showResults.value = false;
-      showBestResult.value = false;
-
-      testsCompleted.value = 0;
-      bestRate.value = 0;
-      avgRate.value = 0;
-      elapsedTime.value = 0;
-      progressCurrent.value = 0;
-      progressTotal.value = 0;
-      totalAttempts.value = 0;
-      totalDetections.value = 0;
-      totalNonDetections.value = 0;
-      totalTimeouts.value = 0;
-      totalErrors.value = 0;
-      quietModeInvalid.value = false;
-      quietModeInvalidReason.value = '';
-      recommendationMessage.value = '';
-      processLog.value = [];
-
-      pushLog('info', `Calibration started (${knownSignalPresent.value ? 'known-signal mode' : 'quiet-channel mode'}).`);
-
-      elapsedTimer = setInterval(() => {
-        if (startTime.value) {
-          elapsedTime.value = Math.floor((Date.now() - startTime.value) / 1000);
-        }
-      }, 1000);
-
-      connectEventSource();
-    } else {
-      throw new Error(result.error || 'Failed to start calibration');
-    }
+    if (disposed || version !== selectionVersion) return;
+    if (!result.success) throw new Error(result.error || 'Failed to start calibration');
+    // The server replays this session, including a run completed before this response.
+    // Reconnect only after start succeeds so an old session cannot leak into this run.
+    connectEventSource();
+    pushLog('info', `Calibration started (${knownSignalPresent.value ? 'known-signal mode' : 'quiet-channel mode'}).`);
   } catch (error) {
+    if (disposed || version !== selectionVersion) return;
+    isRunning.value = false;
+    systemStore.setCadCalibrationRunning(false);
+    if (elapsedTimer) clearInterval(elapsedTimer);
+    elapsedTimer = null;
     statusMessage.value = `Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
     pushLog('error', statusMessage.value);
+  } finally {
+    starting.value = false;
   }
 }
 
@@ -537,8 +553,12 @@ function startGuidedValidation() {
 }
 
 async function stopCalibration() {
+  if (stopping.value || !isRunning.value) return;
+  stopping.value = true;
+  const version = selectionVersion;
   try {
-    const result = await ApiService.post('/cad-calibration-stop');
+    const result = await ApiService.post('/cad-calibration-stop', { radio_id: selectedRadioId.value });
+    if (disposed || version !== selectionVersion) return;
     if (result.success) {
       isRunning.value = false;
       systemStore.setCadCalibrationRunning(false);
@@ -556,6 +576,8 @@ async function stopCalibration() {
     }
   } catch (error) {
     console.error('Failed to stop calibration:', error);
+  } finally {
+    stopping.value = false;
   }
 }
 
@@ -564,26 +586,30 @@ function connectEventSource() {
     eventSource.value.close();
   }
 
+  const version = selectionVersion;
+  const radioId = selectedRadioId.value;
+  if (!radioId || disposed) return;
+  const params = new URLSearchParams({ radio_id: radioId });
   const token = getToken();
-  const tokenParam = token ? `?token=${encodeURIComponent(token)}` : '';
-  eventSource.value = new EventSource(`${API_SERVER_URL}/api/cad-calibration-stream${tokenParam}`);
-
-  eventSource.value.onmessage = function (event) {
+  if (token) params.set('token', token);
+  const source = new EventSource(`${API_SERVER_URL}/api/cad-calibration-stream?${params}`);
+  eventSource.value = source;
+  source.onmessage = function (event) {
+    if (disposed || version !== selectionVersion || eventSource.value !== source) return;
     try {
-      const data = JSON.parse(event.data);
+      const data: CalibrationUpdate = JSON.parse(event.data);
+      // Untagged legacy events belong only to the default receiver.
+      if ((data.radio_id ?? defaultRadioId.value) !== radioId) return;
       handleCalibrationUpdate(data);
     } catch (error) {
       console.error('Failed to parse SSE data:', error);
     }
   };
-
-  eventSource.value.onerror = function (event) {
-    console.error('SSE connection error:', event);
+  source.onerror = function () {
+    if (eventSource.value !== source) return;
     if (!isRunning.value) {
-      if (eventSource.value) {
-        eventSource.value.close();
-        eventSource.value = null;
-      }
+      source.close();
+      eventSource.value = null;
     }
   };
 }
@@ -727,9 +753,7 @@ function handleCalibrationUpdate(data: CalibrationUpdate) {
             ? 'no-known-signal'
             : 'limited-data';
         showNoDetectionGuidance.value = true;
-        setTimeout(() => {
-          showActivityPrompt.value = true;
-        }, 100);
+        showActivityPrompt.value = true;
         pushLog(
           'info',
           noDetectionsObserved
@@ -751,11 +775,26 @@ function handleCalibrationUpdate(data: CalibrationUpdate) {
       }
       break;
 
+    case 'stopped':
+      isRunning.value = false;
+      statusMessage.value = data.message || 'Calibration stopped';
+      pushLog('info', statusMessage.value);
+      systemStore.setCadCalibrationRunning(false);
+      eventSource.value?.close();
+      eventSource.value = null;
+      if (elapsedTimer) clearInterval(elapsedTimer);
+      elapsedTimer = null;
+      break;
+
     case 'error':
       statusMessage.value = `Error: ${data.message}`;
       pushLog('error', statusMessage.value);
       systemStore.setCadCalibrationRunning(false);
-      stopCalibration();
+      isRunning.value = false;
+      eventSource.value?.close();
+      eventSource.value = null;
+      if (elapsedTimer) clearInterval(elapsedTimer);
+      elapsedTimer = null;
       break;
   }
 }
@@ -800,6 +839,7 @@ function calculateAndShowResults() {
 const showRestartModal = ref(false);
 
 async function saveSettings() {
+  if (operationDisabled.value) return;
   if (!bestCalibrationResult.value) {
     statusMessage.value = 'Error: No calibration results to save';
     pushLog('error', statusMessage.value);
@@ -811,13 +851,17 @@ async function saveSettings() {
     return;
   }
 
+  saving.value = true;
+  const version = selectionVersion;
   try {
     const result = await ApiService.post('/save_cad_settings', {
+      radio_id: selectedRadioId.value,
       peak: bestCalibrationResult.value.det_peak,
       min_val: bestCalibrationResult.value.det_min,
       detection_rate: bestCalibrationResult.value.detection_rate,
     });
 
+    if (disposed || version !== selectionVersion) return;
     if (result.success) {
       showRestartModal.value = true;
     } else {
@@ -826,10 +870,14 @@ async function saveSettings() {
   } catch (error) {
     statusMessage.value = `Error: Failed to save settings: ${error instanceof Error ? error.message : 'Unknown error'}`;
     pushLog('error', statusMessage.value);
+  } finally {
+    saving.value = false;
   }
 }
 
 onUnmounted(() => {
+  disposed = true;
+  selectionVersion += 1;
   stopManualCadCheck();
   if (eventSource.value) {
     eventSource.value.close();
@@ -837,10 +885,66 @@ onUnmounted(() => {
   if (elapsedTimer) {
     clearInterval(elapsedTimer);
   }
-  systemStore.setCadCalibrationRunning(false);
 });
 
+function clearRadioResults() {
+  selectionVersion += 1;
+  eventSource.value?.close();
+  eventSource.value = null;
+  calibrationData.value = {};
+  bestCalibrationResult.value = null;
+  backendRecommendedResult.value = null;
+  rangeInfo.value = null;
+  showRangeInfo.value = showResults.value = showBestResult.value = false;
+  showActivityPrompt.value = showNoDetectionGuidance.value = showManualCadModal.value = false;
+  showRestartModal.value = false;
+  progressCurrent.value = progressTotal.value = testsCompleted.value = 0;
+  bestRate.value = avgRate.value = elapsedTime.value = 0;
+  totalAttempts.value = totalDetections.value = totalNonDetections.value = 0;
+  totalTimeouts.value = totalErrors.value = 0;
+  manualAttempts.value = manualDetections.value = manualTimeouts.value = manualErrors.value = 0;
+  manualRecentOutcomes.value = [];
+  quietModeInvalid.value = false;
+  quietModeInvalidReason.value = recommendationMessage.value = '';
+  processLog.value = [];
+  statusMessage.value = 'Ready to start calibration';
+}
+watch(selectedRadioId, () => {
+  clearRadioResults();
+  connectEventSource();
+}, { flush: 'sync' });
+
+async function loadRadios() {
+  try {
+    const response = await ApiService.get<{
+      radios: CadRadio[];
+      default_radio_id: string;
+      active_radio_id: string | null;
+      running: boolean;
+    }>('/cad-radios');
+    if (disposed) return;
+    if (!response.success || !response.data) throw new Error(response.error || 'Unable to load radios');
+    const data = response.data;
+    radios.value = data.radios;
+    defaultRadioId.value = data.default_radio_id;
+    // Pin a restored run to its actual receiver before enabling any controls.
+    const target = data.running ? data.active_radio_id : data.default_radio_id;
+    if (!target || !data.radios.some(r => r.radio_id === target)) {
+      throw new Error('Unable to identify the active CAD radio. Reload before continuing.');
+    }
+    selectedRadioId.value = target;
+    isRunning.value = data.running;
+    systemStore.setCadCalibrationRunning(data.running);
+    if (data.running) statusMessage.value = 'Reconnected to running calibration';
+  } catch (error) {
+    if (!disposed) statusMessage.value = `Error: ${error instanceof Error ? error.message : 'Unable to load radios'}`;
+  } finally {
+    if (!disposed) radiosLoading.value = false;
+  }
+}
+
 onMounted(() => {
+  void loadRadios();
   showCadInfoModal.value = getCookie(CAD_INFO_COOKIE_NAME) !== '1';
   showCadInfoDetails.value = false;
 });
@@ -854,6 +958,21 @@ onMounted(() => {
       </h1>
       <p class="text-content-secondary dark:text-content-muted mt-1 sm:mt-2 text-ui-label sm:text-ui-body">
         Default-anchored calibration with real-time process feedback
+      </p>
+    </div>
+
+    <div class="glass-card shrink-0 rounded-[15px] p-4">
+      <label for="cad-radio" class="block text-sm text-content-secondary mb-2">Radio to calibrate</label>
+      <select id="cad-radio" v-model="selectedRadioId" :disabled="selectionLocked"
+        class="w-full rounded-lg border border-stroke-subtle/30 bg-background-mute/opacity-light px-3 py-2 text-content-primary disabled:opacity-50">
+        <option v-if="!selectedRadioId" value="">{{ radiosLoading ? 'Loading radios…' : 'No radio available' }}</option>
+        <option v-for="radio in radios" :key="radio.radio_id" :value="radio.radio_id" :disabled="!radio.supports_cad">
+          {{ radioLabel(radio) }}{{ radio.supports_cad ? '' : ' · CAD unavailable' }}
+        </option>
+      </select>
+      <p v-if="selectedRadio" class="mt-2 text-xs text-content-muted">
+        {{ radioLabel(selectedRadio) }} · BW {{ selectedRadio.bandwidth / 1000 }} kHz · CR {{ selectedRadio.coding_rate }}.
+        Calibration, manual checks, and saved settings apply only to this radio.
       </p>
     </div>
 
@@ -886,7 +1005,7 @@ onMounted(() => {
             :class="knownSignalPresent
               ? 'text-content-secondary bg-background-mute/opacity-light'
               : 'text-primary bg-primary/opacity-light'"
-            :disabled="isRunning"
+            :disabled="operationDisabled"
             @click="knownSignalPresent = false"
           >
             Quiet baseline
@@ -896,7 +1015,7 @@ onMounted(() => {
             :class="knownSignalPresent
               ? 'text-primary bg-primary/opacity-light'
               : 'text-content-secondary bg-background-mute/opacity-light'"
-            :disabled="isRunning"
+            :disabled="operationDisabled"
             @click="knownSignalPresent = true"
           >
             Known-signal validation
@@ -916,7 +1035,7 @@ onMounted(() => {
       <div class="flex gap-4">
         <button
           @click="startCalibration"
-          :disabled="isRunning"
+          :disabled="operationDisabled"
           class="flex items-center gap-3 px-6 py-3 bg-accent-green/opacity-light hover:bg-accent-green/opacity-medium disabled:bg-background-mute/opacity-light text-accent-green disabled:text-content-muted rounded-lg border border-accent-green/opacity-medium disabled:border-stroke-subtle/20 transition-colors disabled:cursor-not-allowed"
         >
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -929,7 +1048,7 @@ onMounted(() => {
         </button>
         <button
           @click="openManualCadModal"
-          :disabled="isRunning"
+          :disabled="operationDisabled"
           class="flex items-center gap-3 px-6 py-3 bg-primary/opacity-light hover:bg-primary/opacity-medium disabled:bg-background-mute/opacity-light text-primary disabled:text-content-muted rounded-lg border border-primary/opacity-medium disabled:border-stroke-subtle/20 transition-colors disabled:cursor-not-allowed"
         >
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -942,7 +1061,7 @@ onMounted(() => {
         </button>
         <button
           @click="stopCalibration"
-          :disabled="!isRunning"
+          :disabled="!isRunning || starting || stopping"
           class="flex items-center gap-3 px-6 py-3 bg-accent-red/opacity-light hover:bg-accent-red/opacity-medium disabled:bg-background-mute/opacity-light text-accent-red disabled:text-content-muted rounded-lg border border-accent-red/opacity-medium disabled:border-stroke-subtle/20 transition-colors disabled:cursor-not-allowed"
         >
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1047,7 +1166,7 @@ onMounted(() => {
         <button
           v-if="showBestResult && bestCalibrationResult"
           @click="saveSettings"
-          :disabled="quietModeInvalid"
+          :disabled="quietModeInvalid || operationDisabled"
           class="btn-primary flex items-center gap-2"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1164,7 +1283,7 @@ onMounted(() => {
         <div>
           <h3 class="text-lg font-semibold text-content-primary">Manual CAD check</h3>
           <p class="text-sm text-content-secondary dark:text-content-muted">
-            Fine-tune CAD settings and watch live detection quality before running full calibration.
+            {{ selectedRadio ? radioLabel(selectedRadio) : 'Selected radio' }}. Fine-tune CAD settings and watch live detection quality before running full calibration.
           </p>
         </div>
         <button
@@ -1296,7 +1415,7 @@ onMounted(() => {
           <span class="px-2 py-1 rounded border border-stroke-subtle/30">Window size {{ manualWindowSize }}</span>
         </div>
         <div class="flex gap-3">
-          <button class="btn-primary" :disabled="manualCheckRunning" @click="startManualCadCheck">
+          <button class="btn-primary" :disabled="operationDisabled" @click="startManualCadCheck">
             Start
           </button>
           <button
