@@ -1,3 +1,7 @@
+## Latest change: per-radio CAD transmit control
+
+The CAD calibration page now includes **CAD before transmit** and an explicit **Save CAD mode** button. It reports the current radio setting, distinguishes unsynchronized legacy settings, and leaves the setting unchanged if firmware confirmation fails. Turning CAD off skips channel-activity checks and can increase collisions. Merely opening the page never changes a radio setting.
+
 # Kesh's OpenHop Repeater UI
 
 This is the Vue 3 and TypeScript dashboard for [Kesh's OpenHop bridge](https://github.com/kesh33w/kesh-openhop-bridge). The `kesh/bridge` branch extends [OpenHop Repeater UI](https://github.com/openhop-dev/openHop_RepeaterUI) with channel-bridge settings, companion home radios and optional iLink controls.
