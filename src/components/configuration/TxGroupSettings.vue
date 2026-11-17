@@ -43,7 +43,10 @@ async function save(group: Group) {
     if (disposed) return;
     if (!result.success) { message.value = String(result.error || 'Unable to save TX group.'); return; }
     await load();
-    if (!disposed) message.value = 'Saved for restart. Running transmitters have not changed.';
+    if (!disposed) {
+      message.value = 'Saved for restart. Running transmitters have not changed.';
+      if (restartNeeded.value || groups.value.some(g => g.active_radio_ids === null)) showRestartModal.value = true;
+    }
   } catch { if (!disposed) message.value = 'Save outcome unknown. Refresh saved settings before retrying.'; }
   finally { if (!disposed) busy.value = false; }
 }
@@ -55,6 +58,8 @@ onUnmounted(() => { disposed = true; });
     <h3 class="text-lg font-semibold">Sequential transmitters</h3>
     <p class="text-sm">Choose one transmitter or an ordered pair on each frequency. Existing CAD and power settings unchanged. Changes apply after restart.</p>
     <div v-for="group in groups" :key="group.primary_radio_id" class="space-y-2">
+      <p class="font-semibold" :data-testid="`tx-active-${group.primary_radio_id}`">Active now: {{ group.active_radio_ids === null ? 'UNKNOWN' : group.active_radio_ids.length > 1 ? 'ON — sequential dual transmission' : 'OFF — single transmitter' }}</p>
+      <p :data-testid="`tx-saved-${group.primary_radio_id}`">Saved: {{ group.radio_ids.length > 1 ? 'ON — sequential dual transmission' : 'OFF — single transmitter' }}. {{ group.active_radio_ids === null ? 'Running state unavailable.' : group.radio_ids.join(',') !== group.active_radio_ids.join(',') ? 'PENDING RESTART — not active yet.' : 'Applied.' }}</p>
       <label :for="`tx-order-${group.primary_radio_id}`">{{ group.network }} transmit order</label>
       <div class="flex flex-wrap gap-2">
         <select :id="`tx-order-${group.primary_radio_id}`" v-model="drafts[group.primary_radio_id]" :disabled="busy" class="rounded border bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100 p-2">

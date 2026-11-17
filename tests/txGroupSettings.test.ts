@@ -49,3 +49,35 @@ it('opens the existing restart dialog without restarting, supports cancel and re
   expect(button.attributes('disabled')).toBeDefined();
   expect(api.post).not.toHaveBeenCalled();
 });
+
+it('automatically prompts after a successful save that requires restart, without restarting', async () => {
+  const wrapper = mount(TxGroupSettings); await flushPromises();
+  api.get.mockResolvedValue({success:true,data:{groups:[{...state.groups[0],radio_ids:['rak','bay']}]}});
+  await wrapper.get('select').setValue('rak,bay');
+  await wrapper.findAll('button')[0]!.trigger('click'); await flushPromises();
+  expect(wrapper.find('[data-testid=restart-dialog]').exists()).toBe(true);
+  expect(api.post).toHaveBeenCalledExactlyOnceWith('/update_tx_group',{primary_radio_id:'bay',radio_ids:['rak','bay']});
+  await wrapper.get('[data-testid=restart-dialog] button').trigger('click');
+  expect((wrapper.get('select').element as HTMLSelectElement).value).toBe('rak,bay');
+  expect(wrapper.text()).toContain('Running: bay. Saved: rak → bay.');
+  expect(wrapper.find('[data-testid=restart-dialog]').exists()).toBe(false);
+});
+it('does not prompt after a rejected save', async () => {
+  api.post.mockResolvedValue({success:false,error:'Unavailable'});
+  const wrapper = mount(TxGroupSettings); await flushPromises();
+  await wrapper.get('select').setValue('rak,bay');
+  await wrapper.findAll('button')[0]!.trigger('click'); await flushPromises();
+  expect(wrapper.find('[data-testid=restart-dialog]').exists()).toBe(false);
+});
+
+it.each([
+  {active:['bay'],saved:['bay'],activeText:'OFF',savedText:'Applied.'},
+  {active:['bay'],saved:['bay','rak'],activeText:'OFF',savedText:'PENDING RESTART'},
+  {active:['bay','rak'],saved:['bay','rak'],activeText:'ON',savedText:'Applied.'},
+  {active:null,saved:['bay'],activeText:'UNKNOWN',savedText:'Running state unavailable'},
+])('distinguishes active TX from saved configuration: %j', async ({active,saved,activeText,savedText}) => {
+  api.get.mockResolvedValue({success:true,data:{groups:[{...state.groups[0],active_radio_ids:active,radio_ids:saved}]}});
+  const wrapper=mount(TxGroupSettings); await flushPromises();
+  expect(wrapper.get('[data-testid=tx-active-bay]').text()).toContain(activeText);
+  expect(wrapper.get('[data-testid=tx-saved-bay]').text()).toContain(savedText);
+});
