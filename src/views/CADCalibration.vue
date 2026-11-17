@@ -951,7 +951,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="h-[calc(100vh-5rem)] overflow-hidden p-4 flex flex-col gap-4">
+  <div class="p-4 flex flex-col gap-4">
     <div class="shrink-0">
       <h1 class="text-ui-title sm:text-ui-title-lg font-bold text-content-primary">
         CAD Calibration Tool
@@ -1139,7 +1139,7 @@ onMounted(() => {
       </div>
     </div>
 
-    <div class="min-h-0 flex-1 grid lg:grid-cols-2 gap-4 overflow-hidden">
+    <div class="grid shrink-0 lg:grid-cols-2 gap-4">
       <div class="glass-card rounded-[15px] p-4 space-y-3 overflow-auto">
         <h2 class="text-lg font-semibold text-content-primary">Recommendation</h2>
         <div v-if="showBestResult && bestCalibrationResult" class="text-sm text-content-primary">
