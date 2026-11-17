@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue';
 import ApiService from '@/utils/api';
-type Member = {id: string; label: string; cad_off: boolean};
+type Member = {id: string; label: string};
 type Group = {network: string; primary_radio_id: string; radio_ids: string[]; active_radio_ids: string[] | null; members: Member[]};
 const groups = ref<Group[]>([]);
 const drafts = ref<Record<string, string>>({});
@@ -49,7 +49,7 @@ onUnmounted(() => { disposed = true; });
 <template>
   <section class="space-y-3 rounded-lg border border-gray-700 p-4">
     <h3 class="text-lg font-semibold">Sequential transmitters</h3>
-    <p class="text-sm">Choose one transmitter or an ordered pair on each frequency. CAD must be explicitly off on both radios. Power is unchanged. Changes apply after restart.</p>
+    <p class="text-sm">Choose one transmitter or an ordered pair on each frequency. Existing CAD and power settings unchanged. Changes apply after restart.</p>
     <div v-for="group in groups" :key="group.primary_radio_id" class="space-y-2">
       <label :for="`tx-order-${group.primary_radio_id}`">{{ group.network }} transmit order</label>
       <div class="flex flex-wrap gap-2">
