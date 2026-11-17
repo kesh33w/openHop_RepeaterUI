@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue';
+import { onMounted, onUnmounted, ref, computed } from 'vue';
+import RestartModal from '@/components/modals/RestartModal.vue';
 import ApiService from '@/utils/api';
 type Member = {id: string; label: string};
 type Group = {network: string; primary_radio_id: string; radio_ids: string[]; active_radio_ids: string[] | null; members: Member[]};
@@ -7,6 +8,9 @@ const groups = ref<Group[]>([]);
 const drafts = ref<Record<string, string>>({});
 const busy = ref(false);
 const message = ref('');
+const showRestartModal = ref(false);
+const hasDraft = computed(() => groups.value.some(g => drafts.value[g.primary_radio_id] !== g.radio_ids.join(',')));
+const restartNeeded = computed(() => groups.value.some(g => g.active_radio_ids && g.active_radio_ids.join(',') !== g.radio_ids.join(',')));
 let disposed = false;
 function options(group: Group) {
   const primary = group.primary_radio_id;
@@ -60,6 +64,13 @@ onUnmounted(() => { disposed = true; });
       </div>
       <p class="text-sm">Running: {{ group.active_radio_ids?.join(' → ') || 'unavailable' }}. Saved: {{ group.radio_ids.join(' → ') }}.</p>
     </div>
+    <div class="rounded border p-3 space-y-2" data-testid="tx-restart-box">
+      <h4 class="font-semibold">Apply saved transmitter settings</h4>
+      <p>{{ restartNeeded ? 'Saved transmitter order differs from the running configuration.' : 'Restart applies saved configuration, including transmitter order.' }} Restarting briefly interrupts OpenHop and applies all saved settings.</p>
+      <p v-if="hasDraft">Save or discard your transmitter selection before restarting.</p>
+      <button type="button" class="rounded border px-3 py-2" data-testid="tx-validate-restart" :disabled="busy || hasDraft || !groups.length" @click="showRestartModal = true">Validate &amp; restart…</button>
+    </div>
+    <RestartModal v-model="showRestartModal" :start-immediately="false" title="Apply saved transmitter settings" message="Validate the saved configuration and restart OpenHop to apply it. This applies all saved settings, not just transmitter order." />
     <p v-if="message" role="status">{{ message }}</p>
     <button :disabled="busy" class="rounded border px-3 py-1" @click="load">Refresh saved settings</button>
   </section>

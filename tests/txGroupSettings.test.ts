@@ -1,6 +1,7 @@
 import { mount, flushPromises } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import TxGroupSettings from '../src/components/configuration/TxGroupSettings.vue';
+vi.mock('@/components/modals/RestartModal.vue', () => ({default:{props:['modelValue','startImmediately'],emits:['update:modelValue'],template:'<div v-if="modelValue" data-testid="restart-dialog"><button @click="$emit(\'update:modelValue\',false)">Cancel</button></div>'}}));
 const api = vi.hoisted(() => ({get: vi.fn(), post: vi.fn()}));
 vi.mock('@/utils/api', () => ({default: api}));
 const state = {groups: [{network:'sfo', primary_radio_id:'bay', radio_ids:['bay'], active_radio_ids:['bay'], members:[{id:'bay',label:'Directional'},{id:'rak',label:'RAK'}]}]};
@@ -31,4 +32,20 @@ describe('ordered transmitter controls', () => {
     expect(api.post).toHaveBeenCalledTimes(1);
     wrapper.unmount();
   });
+});
+
+it('opens the existing restart dialog without restarting, supports cancel and reopening, and blocks unsaved drafts', async () => {
+  const wrapper = mount(TxGroupSettings); await flushPromises();
+  const button = wrapper.get('[data-testid=tx-validate-restart]');
+  await button.trigger('click');
+  expect(wrapper.find('[data-testid=restart-dialog]').exists()).toBe(true);
+  expect(api.post).not.toHaveBeenCalled();
+  await wrapper.get('[data-testid=restart-dialog] button').trigger('click');
+  expect(wrapper.find('[data-testid=restart-dialog]').exists()).toBe(false);
+  await button.trigger('click');
+  expect(wrapper.find('[data-testid=restart-dialog]').exists()).toBe(true);
+  await wrapper.get('[data-testid=restart-dialog] button').trigger('click');
+  await wrapper.get('select').setValue('rak,bay');
+  expect(button.attributes('disabled')).toBeDefined();
+  expect(api.post).not.toHaveBeenCalled();
 });
