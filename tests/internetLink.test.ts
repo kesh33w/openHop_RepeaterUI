@@ -79,3 +79,131 @@ it('handles an older status response and refreshes connection and activity indep
   expect(w.text()).toContain('Last valid inbound frame: 2 minutes ago');
   w.unmount();
 });
+
+it('shows loading, empty routes, and explicit field descriptions', async () => {
+  let resolve!: (value: Awaited<ReturnType<typeof ApiService.get>>) => void;
+  vi.mocked(ApiService.get).mockImplementationOnce(() => new Promise(r => { resolve = r; }));
+  const w = mount(InternetLink);
+  expect(w.text()).toContain('Loading Internet Link status');
+  resolve({ success: true, data: data() }); await flushPromises();
+  expect(w.text()).toContain('No Internet Link routes are configured.');
+  expect(w.get('[data-testid=link-timeout]').attributes('aria-describedby')).toBe('link-timeout-help');
+  expect(w.get('label[for=link-timeout]').text()).toContain('Send timeout');
+  w.unmount();
+});
+
+it('prevents duplicate saves and leaving while an apply is pending', async () => {
+  let resolve!: (value: Awaited<ReturnType<typeof ApiService.get>>) => void;
+  vi.mocked(ApiService.post).mockImplementationOnce(() => new Promise(r => { resolve = r; }));
+  const w = mount(InternetLink); await flushPromises();
+  await w.get('[data-testid=link-inflight]').setValue('8');
+  await w.get('form').trigger('submit');
+  await w.get('form').trigger('submit');
+  expect(ApiService.post).toHaveBeenCalledTimes(1);
+  const accept = vi.fn(); const cancel = vi.fn();
+  w.vm.requestLeave(accept, cancel);
+  expect(accept).not.toHaveBeenCalled(); expect(cancel).toHaveBeenCalled();
+  resolve({ success: true }); await flushPromises();
+  w.vm.requestLeave(accept, cancel); expect(accept).toHaveBeenCalledOnce();
+  w.unmount();
+});
+
+it('does not save while a status request is pending or the listener is read-only', async () => {
+  let resolve!: (value: Awaited<ReturnType<typeof ApiService.get>>) => void;
+  const w = mount(InternetLink); await flushPromises();
+  await w.get('[data-testid=link-inflight]').setValue('8');
+  vi.mocked(ApiService.get).mockImplementationOnce(() => new Promise(r => { resolve = r; }));
+  await w.get('.refresh-controls button').trigger('click');
+  await w.get('form').trigger('submit'); expect(ApiService.post).not.toHaveBeenCalled();
+  resolve({ success: true, data: { ...data(), editable: false } }); await flushPromises();
+  await w.get('form').trigger('submit'); expect(ApiService.post).not.toHaveBeenCalled();
+  w.unmount();
+});
+
+
+it('defers fetching while inactive and refreshes on activation without replacing edits', async () => {
+  const w = mount(InternetLink, { props: { active: false } });
+  await flushPromises();
+  await vi.advanceTimersByTimeAsync(10000);
+  expect(ApiService.get).not.toHaveBeenCalled();
+  await w.setProps({ active: true }); await flushPromises();
+  expect(ApiService.get).toHaveBeenCalledTimes(1);
+  await w.get('[data-testid=link-timeout]').setValue('2');
+  await w.setProps({ active: false });
+  await vi.advanceTimersByTimeAsync(10000);
+  expect(ApiService.get).toHaveBeenCalledTimes(1);
+  vi.mocked(ApiService.get).mockResolvedValue({ success: true, data: {
+    ...data(), peers: [{ id: 'device-a', connected: true }],
+  } });
+  await w.setProps({ active: true }); await flushPromises();
+  expect(ApiService.get).toHaveBeenCalledTimes(2);
+  expect(w.text()).toContain('Connected');
+  expect(w.get<HTMLInputElement>('[data-testid=link-timeout]').element.value).toBe('2');
+  await vi.advanceTimersByTimeAsync(5000);
+  expect(ApiService.get).toHaveBeenCalledTimes(3);
+  w.unmount();
+});
+
+it('turns off only the service and retains unsaved traffic limits', async () => {
+  vi.mocked(ApiService.get).mockResolvedValue({ success: true, data: { ...data(), service_control_available: true } });
+  vi.mocked(ApiService.post).mockResolvedValue({ success: true, data: { live_updated: true } });
+  const w = mount(InternetLink); await flushPromises();
+  await w.get('[data-testid=link-timeout]').setValue('2');
+  vi.mocked(ApiService.get).mockResolvedValue({ success: true, data: { ...data(), enabled: false, running: false, listening: false, editable: false, service_control_available: true } });
+  await w.get('[data-testid=ilink-service-toggle]').trigger('click'); await flushPromises();
+  expect(ApiService.post).toHaveBeenCalledWith('/update_internet_link', { enabled: false });
+  expect(w.get('[role=switch]').attributes('aria-checked')).toBe('false');
+  expect(w.text()).toContain('Local radio bridging is unchanged');
+  expect(w.get<HTMLInputElement>('[data-testid=link-timeout]').element.value).toBe('2');
+  expect(w.get('fieldset').attributes()).toHaveProperty('disabled');
+  expect(w.get('[role=switch]').attributes('disabled')).toBeUndefined();
+  w.unmount();
+});
+
+it('prevents duplicate toggles, saving and leaving while a service change is pending', async () => {
+  vi.mocked(ApiService.get).mockResolvedValue({ success: true, data: { ...data(), service_control_available: true } });
+  let resolve!: (value: Awaited<ReturnType<typeof ApiService.post>>) => void;
+  vi.mocked(ApiService.post).mockImplementationOnce(() => new Promise(r => { resolve = r; }));
+  const w = mount(InternetLink); await flushPromises();
+  await w.get('[data-testid=link-timeout]').setValue('2');
+  await w.get('[role=switch]').trigger('click');
+  await w.get('[role=switch]').trigger('click');
+  await w.get('form').trigger('submit');
+  expect(ApiService.post).toHaveBeenCalledTimes(1);
+  const accept = vi.fn(); const cancel = vi.fn(); w.vm.requestLeave(accept, cancel);
+  expect(accept).not.toHaveBeenCalled(); expect(cancel).toHaveBeenCalledOnce();
+  resolve({ success: true, data: { live_updated: true } }); await flushPromises();
+  w.unmount();
+});
+
+it('offers retry when saved enabled state could not be started and shows honest failure', async () => {
+  vi.mocked(ApiService.get).mockResolvedValue({ success: true, data: { ...data(), enabled: true, running: false, listening: false, editable: false, service_control_available: true } });
+  vi.mocked(ApiService.post).mockResolvedValue({ success: true, data: { live_updated: false } });
+  const w = mount(InternetLink); await flushPromises();
+  await w.get('[data-testid=ilink-service-retry]').trigger('click'); await flushPromises();
+  expect(ApiService.post).toHaveBeenCalledWith('/update_internet_link', { enabled: true });
+  expect(w.text()).toContain('running state could not be applied');
+  expect(w.get('[role=switch]').attributes('aria-checked')).toBe('true');
+  w.unmount();
+});
+
+it('shows an uncertain service change without claiming success or retrying', async () => {
+  vi.mocked(ApiService.get).mockResolvedValue({ success: true, data: { ...data(), service_control_available: true } });
+  vi.mocked(ApiService.post).mockRejectedValue(new Error('connection lost'));
+  const w = mount(InternetLink); await flushPromises();
+  await w.get('[role=switch]').trigger('click'); await flushPromises();
+  expect(ApiService.post).toHaveBeenCalledTimes(1);
+  expect(w.text()).toContain('service change was not confirmed');
+  expect(w.get('[role=switch]').attributes('aria-checked')).toBe('true');
+  w.unmount();
+});
+
+it('leaves service controls disabled on old backends and during pending server controls', async () => {
+  const old = mount(InternetLink); await flushPromises();
+  expect(old.get('[role=switch]').attributes()).toHaveProperty('disabled'); old.unmount();
+  vi.mocked(ApiService.get).mockResolvedValue({ success: true, data: { ...data(), service_control_available: true, control_pending: true } });
+  const pending = mount(InternetLink); await flushPromises();
+  await pending.get('[role=switch]').trigger('click');
+  expect(ApiService.post).not.toHaveBeenCalled();
+  expect(pending.get('[role=switch]').attributes()).toHaveProperty('disabled'); pending.unmount();
+});

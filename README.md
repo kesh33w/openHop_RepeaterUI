@@ -1,3 +1,9 @@
+## Latest change: sequential transmitter controls
+
+The Bridge control center now includes a **Transmitters** tab for choosing a single transmitter or an ordered pair, including RAK-first. Saving stages the choice for restart; it does not immediately change running radios, CAD, or power.
+
+Deployment note: build and install the UI in the configured `web.web_path` when present, not only the packaged HTML directory.
+
 ## Latest change: per-radio CAD transmit control
 
 The CAD calibration page now includes **CAD before transmit** and an explicit **Save CAD mode** button. It reports the current radio setting, distinguishes unsynchronized legacy settings, and leaves the setting unchanged if firmware confirmation fails. Turning CAD off skips channel-activity checks and can increase collisions. Merely opening the page never changes a radio setting.
