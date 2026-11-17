@@ -4,6 +4,7 @@ import ApiService from '@/utils/api';
 import { useMultiRadioConfig } from '@/composables/useMultiRadioConfig';
 import InternetLinkSettings from './InternetLinkSettings.vue';
 import BridgeDiagnostics from './BridgeDiagnostics.vue';
+import TxGroupSettings from './TxGroupSettings.vue';
 import Spinner from '@/components/ui/Spinner.vue';
 import type { BridgeConfiguration, BridgeMapping, BridgeDirection, BridgeRunningState, BridgeTrafficLimits } from '@/generated/openapi';
 const { radioLabel } = useMultiRadioConfig();
@@ -261,6 +262,7 @@ onUnmounted(() => { disposed = true; if (timer) clearInterval(timer); });
         <div class="actions"><button type="submit">Save bridge settings</button><button type="button" @click="load">Discard changes</button></div>
       </fieldset>
     </form>
+    <TxGroupSettings />
     <BridgeDiagnostics :running="state?.running" />
     <InternetLinkSettings ref="internetLink" />
   </section>

@@ -1,3 +1,4 @@
+vi.mock('@/components/configuration/TxGroupSettings.vue', () => ({default:{template:'<div />'}}));
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 import { useSystemStore } from '@/stores/system';
