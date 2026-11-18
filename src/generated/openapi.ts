@@ -24,6 +24,12 @@ export interface BridgeMapping {
   enabled?: boolean;
   source_channel: string;
   target_channel: string;
+  /**
+   * Optional visible marker before the original sender, followed by one space. Blank disables marking. An identical space-delimited label already in the sender display is not repeated. At most 32 UTF-8 bytes; no colons, controls, or outer whitespace. Marked copies over the 160-byte sender-plus-message budget are skipped without truncation. Local repeats and other packet types are unchanged.
+   * @maxLength 32
+   * @default ""
+   */
+  text_prefix?: string;
 }
 
 export interface BridgeTrafficLimits {
@@ -156,6 +162,20 @@ export interface BridgeDiagnostics {
       admitted?: number;
       rate_limited?: number;
       queue_full?: number;
+    }[];
+  };
+  /** Flood-hop aliases naming which antennas received and sent a repeat. */
+  antenna_identities?: {
+    enabled?: boolean;
+    mode?: 'rx_tx' | 'tx';
+    aliases?: {
+      /** First two bytes of the alias, as shown in packet paths. */
+      prefix?: string;
+      /** Prefix used when the repeat crossed the bridge. */
+      crossing_prefix?: string;
+      /** Receiving radio id; null for a per-transmitter alias. */
+      rx?: string | null;
+      tx?: string;
     }[];
   };
 }
@@ -1285,6 +1305,103 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
         void
       >({
         path: `/update_bridge_controls`,
+        method: 'POST',
+        body: data,
+        secure: true,
+        type: ContentType.Json,
+        format: 'json',
+        ...params,
+      }),
+  };
+  txGroups = {
+    /**
+     * @description Saved and running ordered physical transmitter groups per logical network. No hardware or secret fields.
+     *
+     * @tags Bridge
+     * @name TxGroupsList
+     * @summary Read ordered TX groups
+     * @request GET:/tx_groups
+     * @secure
+     */
+    txGroupsList: (params: RequestParams = {}) =>
+      this.request<
+        {
+          success?: boolean;
+          data?: {
+            restart_required?: boolean;
+            groups?: {
+              network?: string;
+              primary_radio_id?: string;
+              radio_ids?: string[];
+              active_radio_ids?: string[] | null;
+              members?: {
+                id?: string;
+                label?: string;
+              }[];
+            }[];
+          };
+        },
+        any
+      >({
+        path: `/tx_groups`,
+        method: 'GET',
+        secure: true,
+        format: 'json',
+        ...params,
+      }),
+  };
+  updateTxGroup = {
+    /**
+     * @description Stages the transmitter order for one logical network. Running radios are never changed; a restart applies it.
+     *
+     * @tags Bridge
+     * @name UpdateTxGroupCreate
+     * @summary Save one ordered TX group for restart
+     * @request POST:/update_tx_group
+     * @secure
+     */
+    updateTxGroupCreate: (
+      data: {
+        primary_radio_id: string;
+        /**
+         * The primary alone, or two distinct radios on its network including the primary, in send order.
+         * @maxItems 2
+         * @minItems 1
+         */
+        radio_ids: string[];
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<SuccessResponse, any>({
+        path: `/update_tx_group`,
+        method: 'POST',
+        body: data,
+        secure: true,
+        type: ContentType.Json,
+        format: 'json',
+        ...params,
+      }),
+  };
+  setCadEnabled = {
+    /**
+     * @description Applies only after the modem acknowledges, then persists for restart. Does not transmit.
+     *
+     * @tags CAD Calibration
+     * @name SetCadEnabledCreate
+     * @summary Turn CAD before transmit on or off for one radio
+     * @request POST:/set_cad_enabled
+     * @secure
+     */
+    setCadEnabledCreate: (
+      data: {
+        /** Physical radio ID. Omitted or blank selects the default radio. */
+        radio_id?: string;
+        enabled: boolean;
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<SuccessResponse, any>({
+        path: `/set_cad_enabled`,
         method: 'POST',
         body: data,
         secure: true,

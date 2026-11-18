@@ -50,3 +50,25 @@ it('does not label fallback limits as running when the bridge is inactive', asyn
   expect(wrapper.text()).not.toContain('Running directional limits');
   wrapper.unmount();
 });
+
+it('lists antenna identity codes with receiving and sending radios', async () => {
+  const antenna_identities = {enabled:true, mode:'rx_tx', aliases:[
+    {prefix:'3f9a', crossing_prefix:'c41e', rx:'a', tx:'b'},
+    {prefix:'2855', crossing_prefix:'e184', rx:null, tx:'a'},
+  ]};
+  vi.mocked(ApiService.get).mockResolvedValue({success:true,data:{...status, antenna_identities}});
+  const wrapper = mount(BridgeDiagnostics); await flushPromises();
+  const rows = wrapper.findAll('.antenna-identities tbody tr').map(row => row.findAll('td').map(cell => cell.text()));
+  expect(rows[0]![0]).toBe('3f9a');
+  expect(rows[0]![1]).toBe('c41e');
+  expect(rows[1]![2]).toBe('Any');
+  expect(wrapper.text()).toContain('which antenna heard it and which sent it on');
+  wrapper.unmount();
+});
+
+it('hides the antenna identity table when no aliases exist', async () => {
+  vi.mocked(ApiService.get).mockResolvedValue({success:true,data:{...status, antenna_identities:{enabled:false,mode:'rx_tx',aliases:[]}}});
+  const wrapper = mount(BridgeDiagnostics); await flushPromises();
+  expect(wrapper.find('.antenna-identities').exists()).toBe(false);
+  wrapper.unmount();
+});

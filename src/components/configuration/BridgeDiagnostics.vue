@@ -61,6 +61,25 @@ onUnmounted(() => { disposed = true; if (timer) clearInterval(timer); });
         <strong>{{ radioLabel(direction.source_radio) }} → {{ radioLabel(direction.target_radio) }}</strong>:
         {{ direction.pending }} pending, {{ direction.admitted }} admitted, {{ direction.rate_limited }} rate-limited, {{ direction.queue_full }} queue-full.
       </li></ul>
+      <template v-if="diagnostics.antenna_identities?.aliases?.length">
+        <h4>Antenna identities</h4>
+        <p>
+          {{ diagnostics.antenna_identities.enabled ? 'Repeated floods' : 'Tagging is off. Routes learned earlier' }}
+          carry one of these codes as this node's hop, so a packet path shows which antenna heard it and which sent it on.
+          Only 2- and 3-byte paths are tagged.
+        </p>
+        <table class="antenna-identities">
+          <thead><tr><th scope="col">Code</th><th scope="col">After crossing</th><th scope="col">Heard on</th><th scope="col">Sent from</th></tr></thead>
+          <tbody>
+            <tr v-for="alias in diagnostics.antenna_identities.aliases" :key="alias.prefix">
+              <td><code>{{ alias.prefix }}</code></td>
+              <td><code>{{ alias.crossing_prefix }}</code></td>
+              <td>{{ alias.rx ? radioLabel(alias.rx) : 'Any' }}</td>
+              <td>{{ radioLabel(alias.tx) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </template>
       <h4>Independent reception</h4>
       <p>A modem-confirmed TX means the radio reported sending. An independent observer report means an allowlisted external receiver heard matching traffic. Neither proves delivery to a particular person or device.</p>
       <p v-if="!diagnostics.reception.enabled">Independent reception evidence is not configured. Approved observer identities and broker feeds are managed in the host configuration. No observation is inferred from local RX or bridge echoes.</p>
@@ -90,4 +109,6 @@ h3,h4 { font-weight: 600; margin: 1rem 0; }
 p { margin: .75rem 0; }
 li { overflow-wrap: anywhere; }
 summary { cursor: pointer; }
+.antenna-identities { border-collapse: collapse; margin: .75rem 0; }
+.antenna-identities th, .antenna-identities td { border: 1px solid var(--color-stroke-subtle); padding: .25rem .75rem; text-align: left; }
 </style>
