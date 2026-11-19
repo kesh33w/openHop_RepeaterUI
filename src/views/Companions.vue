@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useMultiRadioConfig } from '@/composables/useMultiRadioConfig';
 import { ref, onMounted, computed } from 'vue';
 import ApiService from '@/utils/api';
 import ConfirmDialog from '@/components/modals/ConfirmDialog.vue';
@@ -11,6 +12,7 @@ import { buildMeshCoreAddContactUrl, isValidMeshCorePublicKey } from '@/utils/me
 import { QrCode } from '@lucide/vue';
 
 defineOptions({ name: 'CompanionsView' });
+const { radioLabel } = useMultiRadioConfig();
 
 const loading = ref(false);
 const radioIds = ref<string[]>([]);
@@ -681,7 +683,7 @@ function closeQrModal() {
             <label class="block text-sm mb-2">Home radio</label>
             <select v-model="newIdentity.settings.home_radio_id" data-testid="newIdentity-home" class="modal-input" :required="bridgeEnabled" :disabled="!routingReady">
               <option value="">Select a radio</option>
-              <option v-for="id in radioIds" :key="id" :value="id">{{ id }}</option>
+              <option v-for="id in radioIds" :key="id" :value="id">{{ radioLabel(id) }}</option>
             </select>
             <p class="text-sm mt-1">Required when the bridge is enabled. Replies start here and may cross through a configured channel mapping.</p>
           </div>
@@ -793,7 +795,7 @@ function closeQrModal() {
             <label class="block text-sm mb-2">Home radio</label>
             <select v-model="editingIdentity.settings.home_radio_id" data-testid="editingIdentity-home" class="modal-input" :required="bridgeEnabled" :disabled="!routingReady">
               <option value="">Select a radio</option>
-              <option v-for="id in radioIds" :key="id" :value="id">{{ id }}</option>
+              <option v-for="id in radioIds" :key="id" :value="id">{{ radioLabel(id) }}</option>
             </select>
             <p class="text-sm mt-1">Required when the bridge is enabled. Replies start here and may cross through a configured channel mapping.</p>
           </div>
