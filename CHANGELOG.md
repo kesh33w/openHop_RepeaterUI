@@ -4,6 +4,12 @@ Fork-specific changes to OpenHop Repeater UI. The format follows [Keep a Changel
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-11-19
+
+### Changed
+
+- No changes. Tagged so all four repositories share the HydraHop version.
+
 ## [1.0.1] - 2026-11-19
 
 ### Changed
