@@ -19,6 +19,8 @@ describe('bridge diagnostics', () => {
     expect(wrapper.text()).toContain('Independent observer heard it');
     expect(wrapper.text()).toContain('Neither proves delivery');
     expect(wrapper.text()).toContain('3 rate-limited');
+    expect(wrapper.text()).not.toContain('abc123');
+    await wrapper.get('.evidence-button').trigger('click');
     expect(wrapper.text()).toContain('abc123');
     expect(wrapper.text()).toContain(new Date('2026-11-09T12:00:01Z').toLocaleString());
     expect(wrapper.text()).not.toContain('Invalid Date');
@@ -71,4 +73,92 @@ it('hides the antenna identity table when no aliases exist', async () => {
   const wrapper = mount(BridgeDiagnostics); await flushPromises();
   expect(wrapper.find('.antenna-identities').exists()).toBe(false);
   wrapper.unmount();
+});
+
+describe('crossing exploration', () => {
+  const manyCrossings = () => ({
+    ...status,
+    reception: {
+      ...status.reception,
+      recent: Array.from({ length: 23 }, (_, index) => ({
+        ...status.reception.recent[0]!,
+        id: `crossing-${index}`,
+        source_radio: index % 2 ? 'b' : 'a',
+        target_radio: index % 2 ? 'a' : 'b',
+        tx_state: index % 2 ? 'tx_failed' : 'tx_confirmed',
+        reception_state: index % 2 ? 'unconfirmed' : 'observed',
+      })),
+    },
+  });
+
+  it('paginates ten crossings and filters direction and outcome independently', async () => {
+    vi.mocked(ApiService.get).mockResolvedValue({ success: true, data: manyCrossings() });
+    const wrapper = mount(BridgeDiagnostics); await flushPromises();
+    expect(wrapper.findAll('[data-testid="crossing-row"]')).toHaveLength(10);
+    expect(wrapper.text()).toContain('Page 1 of 3');
+    const next = wrapper.findAll('button').find(button => button.text() === 'Next')!;
+    await next.trigger('click');
+    expect(wrapper.text()).toContain('Page 2 of 3');
+    expect(wrapper.text()).toContain('Auto-refresh paused while you inspect');
+    await next.trigger('click');
+    expect(wrapper.findAll('[data-testid="crossing-row"]')).toHaveLength(3);
+    expect(next.attributes('disabled')).toBeDefined();
+    await wrapper.get('[aria-label="Filter by status"]').setValue('tx_failed');
+    expect(wrapper.text()).toContain('Page 1 of 2');
+    expect(wrapper.text()).toContain('11 matching crossings');
+    await wrapper.get('[aria-label="Filter by direction"]').setValue(JSON.stringify(['a', 'b']));
+    expect(wrapper.text()).toContain('No crossings match these filters');
+    expect(wrapper.findAll('[data-testid="crossing-row"]')).toHaveLength(0);
+    wrapper.unmount();
+  });
+
+  it('preserves filters and page safely when a refreshed result shrinks', async () => {
+    vi.mocked(ApiService.get).mockResolvedValueOnce({ success: true, data: manyCrossings() })
+      .mockResolvedValue({ success: true, data: status });
+    const wrapper = mount(BridgeDiagnostics); await flushPromises();
+    await wrapper.findAll('button').find(button => button.text() === 'Next')!.trigger('click');
+    await wrapper.get('button').trigger('click'); await flushPromises();
+    expect(wrapper.text()).toContain('Page 1 of 1');
+    expect(wrapper.findAll('[data-testid="crossing-row"]')).toHaveLength(1);
+    wrapper.unmount();
+  });
+
+  it('pauses automatic refresh during evidence inspection and clears its timer on unmount', async () => {
+    vi.useFakeTimers();
+    vi.mocked(ApiService.get).mockResolvedValue({ success: true, data: status });
+    const wrapper = mount(BridgeDiagnostics);
+    try {
+      await flushPromises();
+      await wrapper.get('.evidence-button').trigger('click');
+      expect(wrapper.get('.evidence-button').attributes('aria-expanded')).toBe('true');
+      expect(wrapper.text()).toContain('Observation deadline');
+      expect(wrapper.text()).toContain('Received');
+      await vi.advanceTimersByTimeAsync(5000);
+      expect(ApiService.get).toHaveBeenCalledTimes(1);
+      await wrapper.get('.evidence-button').trigger('click');
+      await vi.advanceTimersByTimeAsync(5000);
+      expect(ApiService.get).toHaveBeenCalledTimes(2);
+      wrapper.unmount();
+      await vi.advanceTimersByTimeAsync(10000);
+      expect(ApiService.get).toHaveBeenCalledTimes(2);
+    } finally {
+      wrapper.unmount();
+      vi.useRealTimers();
+    }
+  });
+});
+
+it('loads and polls diagnostics only when its section is active', async () => {
+  vi.useFakeTimers();
+  vi.mocked(ApiService.get).mockResolvedValue({success:true,data:status});
+  const wrapper = mount(BridgeDiagnostics, {props:{active:false}});
+  try {
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(ApiService.get).not.toHaveBeenCalled();
+    await wrapper.setProps({active:true}); await flushPromises();
+    expect(ApiService.get).toHaveBeenCalledTimes(1);
+    await wrapper.setProps({active:false});
+    await vi.advanceTimersByTimeAsync(10000);
+    expect(ApiService.get).toHaveBeenCalledTimes(1);
+  } finally { wrapper.unmount(); vi.useRealTimers(); }
 });
