@@ -4,6 +4,8 @@ Fork-specific changes to OpenHop Repeater UI. The format follows [Keep a Changel
 
 ## [Unreleased]
 
+## [kesh-2026.11.18.2] - 2026-11-19
+
 ### Added
 
 - **Antenna identities setting** (Bridge settings → Transmitters): choose Off (single identity), Transmitting antenna, or Receiving + transmitting antenna codes. The choice applies on restart, with saved and running status and **Validate & restart…**.
@@ -58,6 +60,7 @@ This is the first tagged fork release. It covers everything since the fork's ups
 - Frontend dependencies updated, with a minimum Vite version that includes upstream security fixes.
 - Stored channel keys are never displayed or sent back; leave the key blank to keep it.
 
-[Unreleased]: https://github.com/kesh33w/openHop_RepeaterUI/compare/kesh-2026.11.18.1...kesh/bridge
+[Unreleased]: https://github.com/kesh33w/openHop_RepeaterUI/compare/kesh-2026.11.18.2...kesh/bridge
+[kesh-2026.11.18.2]: https://github.com/kesh33w/openHop_RepeaterUI/compare/kesh-2026.11.18.1...kesh-2026.11.18.2
 [kesh-2026.11.18.1]: https://github.com/kesh33w/openHop_RepeaterUI/compare/kesh-2026.11.18...kesh-2026.11.18.1
 [kesh-2026.11.18]: https://github.com/kesh33w/openHop_RepeaterUI/compare/41cf17e...kesh-2026.11.18
