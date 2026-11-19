@@ -34,6 +34,7 @@ This is the first tagged fork release. It covers everything since the fork's ups
 
 ### Fixed
 
+- The CSS bundle is built only from UI sources. Before, editing docs at the repository root changed the bundle.
 - CAD calibration panels no longer collapse beneath the process log.
 - Airtime chart test fixtures are unmounted before environment teardown.
 
