@@ -82,12 +82,6 @@ Dark mode uses [OpenFreeMap](https://tiles.openfreemap.org/styles/dark) through 
 
 Maps need browser internet access. No provider account or API key is required. Keep the attribution visible and follow the [OpenStreetMap tile policy](https://operations.osmfoundation.org/policies/tiles/), including its caching and offline-download restrictions.
 
-## Upstream and license
-
-OpenHop Repeater UI supplies the original dashboard, authentication, terminal, maps and other management pages. This fork adds the controls described above. The upstream project and its contributors retain their attribution under the [MIT License](LICENSE).
-
-Report fork-specific problems in [this repository](https://github.com/kesh33w/openHop_RepeaterUI/issues). Include the UI and backend commits, browser and reproduction steps. Remove credentials and channel keys from screenshots and logs.
-
 ## Crossing operations
 
 The Bridge page separates the saved configuration from the running bridge. Pending edits and saved changes do not change the active radio routes until OpenHop restarts. The running comparison includes channel key changes without exposing keys in either view.
@@ -103,3 +97,9 @@ Independent observer identities and approved broker feeds remain host-configured
 The bridge editor never sends the host-managed reception observer allowlist back in a settings save. If a save succeeds but refreshing status fails, the editor reports the saved result and marks the running comparison unknown until refreshed. A definite pause failure reports that the request changed no settings. An unknown outcome or lost response warns that work may still complete and requires a status refresh before another pause action.
 
 Peer routing defaults to `legacy` for existing configurations. The saved-settings selector can explicitly select `distinct`, which separates native same-radio hops from the unsigned public crossing route identifier shown under running routes. Discovery, repeater administration and TRACE require distinct mode. Changing mode requires a restart and clearing/relearning cross-network contact paths; the UI preserves channel mappings and direction selections. Legacy mode retains the existing policy that a native bridge next hop on a configured ingress selects crossing, so it does not promise unchanged same-radio direct routing.
+
+## Upstream and license
+
+OpenHop Repeater UI supplies the original dashboard, authentication, terminal, maps and other management pages. This fork adds the controls described above. The upstream project and its contributors retain their attribution under the [MIT License](LICENSE).
+
+Report fork-specific problems in the [hub's issues](https://github.com/kesh33w/kesh-openhop-bridge/issues), which cover all four repositories of this fork. Include the UI and backend commits, browser and reproduction steps. Remove credentials and channel keys from screenshots and logs.
