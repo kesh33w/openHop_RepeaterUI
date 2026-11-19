@@ -6,6 +6,11 @@ Fork-specific changes to OpenHop Repeater UI. The format follows [Keep a Changel
 
 ### Added
 
+- **Bridge control center**: Bridge settings become tabbed sections, with these additions (from the previously unmerged `fix/live-bridge-transmitters` branch, which the Pi has served since 2026-11-17):
+  - **Channel links**: forward and reverse mappings are paired into two-way links (A → B only, B → A only, or both). Edits are drafted, then saved, and the page warns about responses lost in transit.
+  - **Transmitters tab**: active and saved status, pending-restart marking, and **Validate & restart…**, combined with the bridged-only scope selector.
+  - **Activity**: crossing filters (direction, outcome), pagination and per-crossing evidence, plus the antenna identity table.
+  - **Internet Link panel**: a reworked layout that refreshes only while visible.
 - **Radio names**: a Configuration → Radio Names tab sets display-only names for each radio, saved in `web.radio_labels`. Menus and labels across the UI (bridge, radio settings, radio hardware, companions, CAD calibration) use the saved name, falling back to the configured label or radio ID. Saving takes effect immediately without a restart and does not change radio IDs, frequencies or routing.
 
 ## [kesh-2026.11.18] - 2026-11-18
