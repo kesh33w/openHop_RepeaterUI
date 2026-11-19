@@ -4,6 +4,10 @@ Fork-specific changes to OpenHop Repeater UI. The format follows [Keep a Changel
 
 ## [Unreleased]
 
+### Added
+
+- **Antenna identities setting** (Bridge settings → Transmitters): choose Off (single identity), Transmitting antenna, or Receiving + transmitting antenna codes. The choice applies on restart, with saved and running status and **Validate & restart…**.
+
 ## [kesh-2026.11.18.1] - 2026-11-18
 
 ### Added
