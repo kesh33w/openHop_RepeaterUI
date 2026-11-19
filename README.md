@@ -1,23 +1,30 @@
-## Latest change: per-radio CAD transmit control
+# OpenHop Repeater UI: Kesh bridge fork
 
-The CAD calibration page now includes **CAD before transmit** and an explicit **Save CAD mode** button. It reports the current radio setting, distinguishes unsynchronized legacy settings, and leaves the setting unchanged if firmware confirmation fails. Turning CAD off skips channel-activity checks and can increase collisions. Merely opening the page never changes a radio setting.
+This is the Vue 3 and TypeScript web dashboard for [Kesh's OpenHop Repeater fork](https://github.com/kesh33w/openhop_repeater/tree/kesh/bridge), which bridges two MeshCore networks from one Raspberry Pi. It extends [OpenHop Repeater UI](https://github.com/openhop-dev/openHop_RepeaterUI) with controls for the fork's backend features.
 
-# Kesh's OpenHop Repeater UI
+| | |
+|---|---|
+| **Main line** | [`kesh/bridge`](https://github.com/kesh33w/openHop_RepeaterUI/tree/kesh/bridge) |
+| **Current release** | `kesh-2026.11.18`: see [CHANGELOG.md](CHANGELOG.md) |
+| **Upstream base** | `openhop-dev/openHop_RepeaterUI` `dev` at `41cf17e` (29 Oct 2026) |
+| **Ships in** | The repeater repository: built into `openhop_repeater/repeater/web/html` and committed there |
 
-This is the Vue 3 and TypeScript dashboard for [Kesh's OpenHop bridge](https://github.com/kesh33w/kesh-openhop-bridge). The `kesh/bridge` branch extends [OpenHop Repeater UI](https://github.com/openhop-dev/openHop_RepeaterUI) with channel-bridge settings, companion home radios and optional iLink controls.
+A standalone frontend cannot provide the fork's APIs. Always use it with the repeater build of the same release.
 
-Use it with the matching [Repeater fork](https://github.com/kesh33w/openhop_repeater/tree/kesh/bridge). A standalone frontend cannot provide the bridge or Internet Link APIs.
+## What this fork adds
 
-## Bridge controls
+| Page | Addition |
+|---|---|
+| **Configuration → Bridge** | Channel mappings with write-only keys, per-channel and per-direction switches, protocol transit, peer routing mode, traffic safeguards, live **Pause crossings now**, and the saved-versus-running comparison |
+| | **Sequential transmitters:** single TX or an ordered pair per network, used for every packet or **for bridged packets only** |
+| | **Crossing diagnostics:** directional counters, modem TX versus independent reception evidence, and the **antenna identity** code table |
+| | **Internet Link:** peers, routes, last inbound frame age, service on/off and live traffic limits |
+| **CAD Calibration** | Pick the physical radio to calibrate, and the per-radio **CAD before transmit** switch, confirmed by firmware |
+| **Companions** | Explicit home radio and receive network for each companion |
+| **Broker settings** | Receive radio and region for each MQTT observer feed |
+| **Dashboard** | Last RF reception per radio panel, and configured radio names throughout |
 
-The Bridge page configures directional channel mappings, explicit-path direct-message routes, the origin home radio and queue limits. Companions have their own home-radio assignments on the Companions page.
-
-- Add a reverse mapping or route when replies need to cross back.
-- Stored channel keys never come back from the settings API. Leave a saved channel's replacement key blank to keep it.
-- Saving bridge settings writes the configuration. It does not restart the service or transmit a packet. Restart OpenHop separately to apply those settings.
-- Internet Link traffic limits apply immediately when the listener is running. They do not require a restart.
-
-Internet Link shows approved peers, routes, connection state and the age of the last valid inbound frame. A connected session confirms TLS authentication. Neither connection state nor frame activity proves RF delivery or a recipient acknowledgment. Endpoint addresses, trust, peer approvals and enrollment permissions remain in the host configuration.
+Each control is documented with its backend feature in the repeater's [feature reference](https://github.com/kesh33w/openhop_repeater/blob/kesh/bridge/docs/fork/README.md).
 
 ## Develop locally
 

@@ -1,0 +1,46 @@
+# Changelog
+
+Fork-specific changes to OpenHop Repeater UI. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Releases are tagged `kesh-YYYY.MM.DD`, and the same tag is used across the repeater, core, web UI and hub repositories.
+
+## [Unreleased]
+
+## [kesh-2026.11.18] - 2026-11-18
+
+This is the first tagged fork release. It covers everything since the fork's upstream base, `openhop-dev/openHop_RepeaterUI` `dev` at `41cf17e` (2026-10-29).
+
+### Added
+
+- **Bridge settings**:
+  - native configuration with write-only channel keys;
+  - required, preserved home radios for bridge origins and companions;
+  - independent opt-in direct-message routes.
+- **Bridge controls**:
+  - **Pause crossings now**;
+  - per-channel and per-direction switches;
+  - protocol transit options (discovery, repeater admin, TRACE);
+  - peer routing mode.
+- **Crossing diagnostics**:
+  - directional traffic counters;
+  - modem TX versus independent reception evidence;
+  - the antenna identity code table.
+- **Sequential transmitters**: an ordered pair per network, used for every packet or for bridged packets only.
+- **Internet Link**: status, controls and the age of the last valid inbound frame from each peer.
+- **CAD Calibration**:
+  - choose and isolate the physical radio being calibrated;
+  - an explicit, firmware-confirmed **CAD before transmit** switch per radio.
+- **Broker settings**: the receive radio and region for each observer feed.
+- **Dashboard and charts**: last RF reception on each radio panel, and configured radio names throughout.
+- Fork README, CHANGELOG, CONTRIBUTING, SECURITY, a PR template, and CI (type-check, tests, build, and the API client checked against the repeater spec).
+
+### Fixed
+
+- CAD calibration panels no longer collapse beneath the process log.
+- Airtime chart test fixtures are unmounted before environment teardown.
+
+### Security
+
+- Frontend dependencies updated, with a minimum Vite version that includes upstream security fixes.
+- Stored channel keys are never displayed or sent back; leave the key blank to keep it.
+
+[Unreleased]: https://github.com/kesh33w/openHop_RepeaterUI/compare/kesh-2026.11.18...kesh/bridge
+[kesh-2026.11.18]: https://github.com/kesh33w/openHop_RepeaterUI/compare/41cf17e...kesh-2026.11.18
