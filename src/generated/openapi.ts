@@ -1334,6 +1334,9 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
               primary_radio_id?: string;
               radio_ids?: string[];
               active_radio_ids?: string[] | null;
+              /** Saved scope. crossings = only bridged sends use both radios. */
+              scope?: 'all' | 'crossings';
+              active_scope?: 'all' | 'crossings' | null;
               members?: {
                 id?: string;
                 label?: string;
@@ -1369,6 +1372,11 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
          * @minItems 1
          */
         radio_ids: string[];
+        /**
+         * all = every send uses the group; crossings = only packets bridged from the other network do.
+         * @default "all"
+         */
+        scope?: 'all' | 'crossings';
       },
       params: RequestParams = {},
     ) =>
