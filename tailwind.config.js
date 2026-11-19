@@ -1,6 +1,7 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ['./index.html', './src/**/*.{vue,js,ts,jsx,tsx}'],
+  // public/ holds stable-named scripts that create elements with these classes at runtime.
+  content: ['./index.html', './src/**/*.{vue,js,ts,jsx,tsx}', './public/**/*.js'],
   darkMode: 'class',
   // safelist: height classes used by BAR_HEIGHTS_SM / BAR_HEIGHTS_MD lookup arrays in
   // NeighborTable.vue and NeighborDetailsModal.vue — composed dynamically so JIT can't scan them.
