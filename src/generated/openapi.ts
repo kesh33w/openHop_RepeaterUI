@@ -180,6 +180,14 @@ export interface BridgeDiagnostics {
   };
 }
 
+export interface AntennaIdentityState {
+  saved?: 'off' | 'tx' | 'rx_tx';
+  running?: 'off' | 'tx' | 'rx_tx' | null;
+  restart_required?: boolean;
+  /** Whether per-transmitter keys exist, which the tx mode needs. */
+  tx_available?: boolean;
+}
+
 export interface InternetLinkOptions {
   /**
    * @min 0
@@ -1305,6 +1313,57 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
         void
       >({
         path: `/update_bridge_controls`,
+        method: 'POST',
+        body: data,
+        secure: true,
+        type: ContentType.Json,
+        format: 'json',
+        ...params,
+      }),
+  };
+  antennaIdentities = {
+    /**
+     * @description Saved and running mode of the flood-hop antenna identity aliases. Never returns keys.
+     *
+     * @tags Bridge
+     * @name AntennaIdentitiesList
+     * @summary Read the antenna identity mode
+     * @request GET:/antenna_identities
+     * @secure
+     */
+    antennaIdentitiesList: (params: RequestParams = {}) =>
+      this.request<
+        {
+          success?: boolean;
+          data?: AntennaIdentityState;
+        },
+        any
+      >({
+        path: `/antenna_identities`,
+        method: 'GET',
+        secure: true,
+        format: 'json',
+        ...params,
+      }),
+  };
+  updateAntennaIdentities = {
+    /**
+     * @description off keeps the section so routes learned through aliases still resolve. tx needs per-transmitter keys. Running RF is never changed; a restart applies it.
+     *
+     * @tags Bridge
+     * @name UpdateAntennaIdentitiesCreate
+     * @summary Save the antenna identity mode for restart
+     * @request POST:/update_antenna_identities
+     * @secure
+     */
+    updateAntennaIdentitiesCreate: (
+      data: {
+        mode: 'off' | 'tx' | 'rx_tx';
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<SuccessResponse, any>({
+        path: `/update_antenna_identities`,
         method: 'POST',
         body: data,
         secure: true,

@@ -5,6 +5,7 @@ import { useMultiRadioConfig } from '@/composables/useMultiRadioConfig';
 import InternetLinkSettings from './InternetLinkSettings.vue';
 import BridgeDiagnostics from './BridgeDiagnostics.vue';
 import TxGroupSettings from './TxGroupSettings.vue';
+import AntennaIdentitySettings from './AntennaIdentitySettings.vue';
 import Spinner from '@/components/ui/Spinner.vue';
 import { groupConnections, serializeConnections, setConnectionDirection, connectionKind, type ChannelConnection } from '@/utils/channelConnections';
 import type { BridgeConfiguration, BridgeMapping, BridgeDirection, BridgeRunningState, BridgeTrafficLimits } from '@/generated/openapi';
@@ -472,7 +473,7 @@ onUnmounted(() => { window.removeEventListener('beforeunload', beforeUnload); di
         <div class="save-actions"><button type="button" :disabled="busy || pausing" @click="discard">Discard changes</button><button type="submit" class="save-button" :disabled="busy || pausing || writeUnconfirmed || !!newConnection">{{ busy ? 'Saving…' : 'Save bridge settings' }}</button></div>
       </footer>
     </form>
-    <section v-if="activePanel === 'transmitters'" id="bridge-panel-transmitters"><TxGroupSettings /></section>
+    <section v-if="activePanel === 'transmitters'" id="bridge-panel-transmitters" class="space-y-4"><TxGroupSettings /><AntennaIdentitySettings /></section>
     <section v-show="activePanel === 'activity'" id="bridge-panel-activity"><BridgeDiagnostics :running="state?.running" :active="activePanel === 'activity'" /></section>
     <section v-show="activePanel === 'link'" id="bridge-panel-link"><InternetLinkSettings ref="internetLink" :active="activePanel === 'link'" /></section>
   </section>
