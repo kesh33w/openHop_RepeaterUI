@@ -4,6 +4,10 @@ Fork-specific changes to OpenHop Repeater UI. The format follows [Keep a Changel
 
 ## [Unreleased]
 
+### Changed
+
+- **README** title names the fork HydraHop.
+
 ## [kesh-2026.11.19] - 2026-11-19
 
 ### Changed

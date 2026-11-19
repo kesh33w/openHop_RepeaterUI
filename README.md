@@ -1,4 +1,4 @@
-# OpenHop Repeater UI: Kesh bridge fork
+# OpenHop Repeater UI: HydraHop fork
 
 This is the Vue 3 and TypeScript web dashboard for [Kesh's OpenHop Repeater fork](https://github.com/kesh33w/openhop_repeater/tree/kesh/bridge), which bridges two MeshCore networks from one Raspberry Pi. It extends [OpenHop Repeater UI](https://github.com/openhop-dev/openHop_RepeaterUI) with controls for the fork's backend features.
 
