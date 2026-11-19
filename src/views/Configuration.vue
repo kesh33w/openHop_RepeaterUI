@@ -4,6 +4,7 @@ import { useRoute, onBeforeRouteUpdate } from 'vue-router';
 import { useSystemStore } from '@/stores/system';
 import { useDataService } from '@/stores/dataService';
 import BridgeSettings from '@/components/configuration/BridgeSettings.vue';
+import RadioNamesSettings from '@/components/configuration/RadioNamesSettings.vue';
 import RadioSettings from '@/components/configuration/RadioSettings.vue';
 import RadioHardwareSettings from '@/components/configuration/RadioHardwareSettings.vue';
 import RepeaterSettings from '@/components/configuration/RepeaterSettings.vue';
@@ -39,6 +40,7 @@ const initialLoadComplete = ref(false);
 // ── Editable tab refs (for unsaved-changes guard) ─────────────────────────────
 
 const bridgeRef = ref<EditableTabRef | null>(null);
+const radioNamesRef = ref<EditableTabRef | null>(null);
 const radioRef          = ref<EditableTabRef | null>(null);
 const radioHardwareRef  = ref<EditableTabRef | null>(null);
 const repeaterRef       = ref<EditableTabRef | null>(null);
@@ -53,6 +55,7 @@ const sensorRef         = ref<EditableTabRef | null>(null);
 const editableTabRefs: Record<string, Ref<EditableTabRef | null>> = {
   bridge: bridgeRef,
   radio:           radioRef,
+  'radio-names': radioNamesRef,
   'radio-hardware': radioHardwareRef,
   repeater:        repeaterRef,
   advert:          advertRef,
@@ -83,7 +86,7 @@ function requestCurrentTabLeave(callback: () => void, cancel?: () => void) {
 // ── Route → active tab ────────────────────────────────────────────────────────
 
 const VALID_TABS = new Set([
-  'bridge', 'radio', 'radio-hardware', 'repeater', 'duty', 'delays',
+  'bridge', 'radio', 'radio-names', 'radio-hardware', 'repeater', 'duty', 'delays',
   'advert', 'transport', 'api-tokens', 'web', 'observer', 'policy-engine',
   'backup', 'database', 'memory', 'sensormanager', 'appearance',
 ]);
@@ -193,6 +196,7 @@ onMounted(async () => {
       <!-- Active panel -->
       <div v-else class="min-h-[400px]">
         <BridgeSettings v-if="activeTab === 'bridge'" ref="bridgeRef" key="bridge-settings" />
+        <RadioNamesSettings v-if="activeTab === 'radio-names'" ref="radioNamesRef" key="radio-names" />
         <RadioSettings          v-if="activeTab === 'radio'"         ref="radioRef"         key="radio-settings" />
         <RadioHardwareSettings  v-if="activeTab === 'radio-hardware'" ref="radioHardwareRef" key="radio-hardware-settings" />
         <RepeaterSettings       v-if="activeTab === 'repeater'"      ref="repeaterRef"      key="repeater-settings" />

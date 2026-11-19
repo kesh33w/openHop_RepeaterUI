@@ -19,6 +19,7 @@ const setupStore = useSetupStore();
 const {
   isMultiRadio,
   radioOptions,
+  radioLabel,
   effectiveSelectedId,
   activeRadioAirConfig,
   defaultRadioId,
@@ -340,7 +341,7 @@ defineExpose({ requestLeave, isEditing });
           <div class="text-sm font-semibold text-content-primary">Active radio</div>
           <div class="text-xs text-content-muted">
             Edit LoRa air settings for one radios[] entry. Default TX:
-            <span class="font-mono">{{ defaultRadioId }}</span>
+            <span class="font-mono">{{ radioLabel(defaultRadioId) }}</span>
             · mode
             <span class="font-mono">{{ txMode }}</span>
           </div>

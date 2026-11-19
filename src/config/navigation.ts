@@ -76,6 +76,7 @@ export const navigationItems: NavItemConfig[] = [
             activeOn: ['/configuration'],
             children: [
               { id: 'config-radio-settings', label: 'Radio Settings',    icon: Radio,    route: '/configuration', params: { tab: 'radio' },          activeOn: ['/configuration'] },
+              { id: 'config-radio-names', label: 'Radio Names', icon: Radio, route: '/configuration', params: { tab: 'radio-names' }, activeOn: ['/configuration'] },
               { id: 'config-radio-hardware', label: 'Radio Hardware',    icon: Antenna,  route: '/configuration', params: { tab: 'radio-hardware' }, activeOn: ['/configuration'] },
               { id: 'config-repeater',       label: 'Repeater',          icon: Repeat2,  route: '/configuration', params: { tab: 'repeater' },       activeOn: ['/configuration'] },
               { id: 'config-duty',           label: 'Duty Cycle',        icon: Percent,  route: '/configuration', params: { tab: 'duty' },           activeOn: ['/configuration'] },

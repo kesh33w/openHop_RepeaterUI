@@ -4,6 +4,10 @@ Fork-specific changes to OpenHop Repeater UI. The format follows [Keep a Changel
 
 ## [Unreleased]
 
+### Added
+
+- **Radio names**: a Configuration → Radio Names tab sets display-only names for each radio, saved in `web.radio_labels`. Menus and labels across the UI (bridge, radio settings, radio hardware, companions, CAD calibration) use the saved name, falling back to the configured label or radio ID. Saving takes effect immediately without a restart and does not change radio IDs, frequencies or routing.
+
 ## [kesh-2026.11.18] - 2026-11-18
 
 This is the first tagged fork release. It covers everything since the fork's upstream base, `openhop-dev/openHop_RepeaterUI` `dev` at `41cf17e` (2026-10-29).

@@ -337,6 +337,7 @@ export interface SystemStats {
       cors_enabled?: boolean;
       web_path?: string | null;
       site_name?: string;
+      radio_labels?: Record<string, string>;
     };
     mqtt_brokers?: {
       iata_code?: string;
