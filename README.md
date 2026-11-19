@@ -5,7 +5,7 @@ This is the Vue 3 and TypeScript web dashboard for [Kesh's OpenHop Repeater fork
 | | |
 |---|---|
 | **Main line** | [`kesh/bridge`](https://github.com/kesh33w/openHop_RepeaterUI/tree/kesh/bridge) |
-| **Current release** | `kesh-2026.11.18`: see [CHANGELOG.md](CHANGELOG.md) |
+| **Releases** | Released together as **HydraHop** (`hydrahop-vX.Y.Z` tags). Current version and pins: [hydrahop](https://github.com/kesh33w/hydrahop#readme). Changes: [CHANGELOG.md](CHANGELOG.md) |
 | **Upstream base** | `openhop-dev/openHop_RepeaterUI` `dev` at `41cf17e` (29 Oct 2026) |
 | **Ships in** | The repeater repository: built into `openhop_repeater/repeater/web/html` and committed there |
 
@@ -40,7 +40,7 @@ npm run dev
 
 Set `VITE_DEV_API_URL` in `.env.local` to your backend URL before starting Vite. The default is `http://localhost:8000`. The dev server proxies `/api` and `/auth` to that backend; WebSocket code uses the same setting. Use an account on that backend to sign in. Do not put channel keys or backend credentials in frontend environment variables.
 
-The hub's [current component manifest](https://github.com/kesh33w/kesh-openhop-bridge/blob/kesh/openhop-bridge/components.current.json) pins a dated integration snapshot. It is separate from the original release manifest and may precede the latest branch tips.
+The hub's [current component manifest](https://github.com/kesh33w/hydrahop/blob/kesh/openhop-bridge/components.current.json) pins a dated integration snapshot. It is separate from the original release manifest and may precede the latest branch tips.
 
 ## Check and build
 
@@ -102,4 +102,4 @@ Peer routing defaults to `legacy` for existing configurations. The saved-setting
 
 OpenHop Repeater UI supplies the original dashboard, authentication, terminal, maps and other management pages. This fork adds the controls described above. The upstream project and its contributors retain their attribution under the [MIT License](LICENSE).
 
-Report fork-specific problems in the [hub's issues](https://github.com/kesh33w/kesh-openhop-bridge/issues), which cover all four repositories of this fork. Include the UI and backend commits, browser and reproduction steps. Remove credentials and channel keys from screenshots and logs.
+Report fork-specific problems in the [hub's issues](https://github.com/kesh33w/hydrahop/issues), which cover all four repositories of this fork. Include the UI and backend commits, browser and reproduction steps. Remove credentials and channel keys from screenshots and logs.
