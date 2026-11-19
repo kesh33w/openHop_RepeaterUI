@@ -2,9 +2,12 @@
 import { onMounted, onUnmounted, ref } from 'vue';
 import ApiService from '@/utils/api';
 type Member = {id: string; label: string};
-type Group = {network: string; primary_radio_id: string; radio_ids: string[]; active_radio_ids: string[] | null; members: Member[]};
+type Scope = 'all' | 'crossings';
+type Group = {network: string; primary_radio_id: string; radio_ids: string[]; active_radio_ids: string[] | null; scope?: Scope; active_scope?: Scope | null; members: Member[]};
+const scopeLabels: Record<Scope, string> = {all: 'every packet', crossings: 'bridged packets only'};
 const groups = ref<Group[]>([]);
 const drafts = ref<Record<string, string>>({});
+const scopeDrafts = ref<Record<string, Scope>>({});
 const busy = ref(false);
 const message = ref('');
 let disposed = false;
@@ -24,8 +27,16 @@ async function load() {
     if (disposed) return;
     groups.value = result.data.groups;
     drafts.value = Object.fromEntries(groups.value.map(g => [g.primary_radio_id, g.radio_ids.join(',')]));
+    scopeDrafts.value = Object.fromEntries(groups.value.map(g => [g.primary_radio_id, g.scope || 'all']));
   } catch { if (!disposed) message.value = 'TX group settings could not be loaded.'; }
   finally { if (!disposed) busy.value = false; }
+}
+function isPair(group: Group) {
+  return (drafts.value[group.primary_radio_id] || '').includes(',');
+}
+function unchanged(group: Group) {
+  return drafts.value[group.primary_radio_id] === group.radio_ids.join(',')
+    && (scopeDrafts.value[group.primary_radio_id] || 'all') === (group.scope || 'all');
 }
 async function save(group: Group) {
   if (busy.value) return;
@@ -35,6 +46,7 @@ async function save(group: Group) {
     const result = await ApiService.post('/update_tx_group', {
       primary_radio_id: group.primary_radio_id,
       radio_ids: (drafts.value[group.primary_radio_id] || group.primary_radio_id).split(','),
+      scope: scopeDrafts.value[group.primary_radio_id] || 'all',
     });
     if (disposed) return;
     if (!result.success) { message.value = String(result.error || 'Unable to save TX group.'); return; }
@@ -56,9 +68,14 @@ onUnmounted(() => { disposed = true; });
         <select :id="`tx-order-${group.primary_radio_id}`" v-model="drafts[group.primary_radio_id]" :disabled="busy" class="rounded border bg-gray-900 p-2">
           <option v-for="option in options(group)" :key="option.value" :value="option.value">{{ option.label }}</option>
         </select>
-        <button :disabled="busy || drafts[group.primary_radio_id] === group.radio_ids.join(',')" class="rounded border px-3 py-2" @click="save(group)">Save for restart</button>
+        <select v-if="isPair(group)" :id="`tx-scope-${group.primary_radio_id}`" v-model="scopeDrafts[group.primary_radio_id]" :disabled="busy" aria-label="Packets sent through both transmitters" class="rounded border bg-gray-900 p-2">
+          <option value="all">Both transmitters for every packet</option>
+          <option value="crossings">Both transmitters for bridged packets only</option>
+        </select>
+        <button :disabled="busy || unchanged(group)" class="rounded border px-3 py-2" @click="save(group)">Save for restart</button>
       </div>
-      <p class="text-sm">Running: {{ group.active_radio_ids?.join(' → ') || 'unavailable' }}. Saved: {{ group.radio_ids.join(' → ') }}.</p>
+      <p v-if="isPair(group) && scopeDrafts[group.primary_radio_id] === 'crossings'" class="text-sm">Packets bridged from the other network go out on both radios for extra reach. Everything else uses {{ group.members.find(m => m.id === group.primary_radio_id)?.label || group.primary_radio_id }} alone.</p>
+      <p class="text-sm">Running: {{ group.active_radio_ids?.join(' → ') || 'unavailable' }}<template v-if="(group.active_radio_ids?.length || 0) > 1"> for {{ scopeLabels[group.active_scope || 'all'] }}</template>. Saved: {{ group.radio_ids.join(' → ') }}<template v-if="group.radio_ids.length > 1"> for {{ scopeLabels[group.scope || 'all'] }}</template>.</p>
     </div>
     <p v-if="message" role="status">{{ message }}</p>
     <button :disabled="busy" class="rounded border px-3 py-1" @click="load">Refresh saved settings</button>

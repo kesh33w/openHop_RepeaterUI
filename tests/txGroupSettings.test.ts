@@ -11,7 +11,7 @@ describe('ordered transmitter controls', () => {
     expect(wrapper.findAll('option').map(o => o.text())).toEqual(['Single: Directional','Directional → RAK','RAK → Directional']);
     await wrapper.get('select').setValue('rak,bay');
     await wrapper.findAll('button')[0]!.trigger('click'); await flushPromises();
-    expect(api.post).toHaveBeenCalledExactlyOnceWith('/update_tx_group',{primary_radio_id:'bay',radio_ids:['rak','bay']});
+    expect(api.post).toHaveBeenCalledExactlyOnceWith('/update_tx_group',{primary_radio_id:'bay',radio_ids:['rak','bay'],scope:'all'});
     expect(wrapper.text()).toContain('Running transmitters have not changed');
   });
   it('preserves selection on rejected save and shows validation reason', async () => {
@@ -30,5 +30,25 @@ describe('ordered transmitter controls', () => {
     await wrapper.findAll('button')[0]!.trigger('click');
     expect(api.post).toHaveBeenCalledTimes(1);
     wrapper.unmount();
+  });
+  it('saves bridged-only dual TX for a pair and explains it', async () => {
+    const wrapper = mount(TxGroupSettings); await flushPromises();
+    expect(wrapper.find('select[aria-label="Packets sent through both transmitters"]').exists()).toBe(false);
+    await wrapper.get('select').setValue('rak,bay');
+    const scope = wrapper.get('select[aria-label="Packets sent through both transmitters"]');
+    await scope.setValue('crossings');
+    expect(wrapper.text()).toContain('Everything else uses Directional alone');
+    await wrapper.findAll('button')[0]!.trigger('click'); await flushPromises();
+    expect(api.post).toHaveBeenCalledExactlyOnceWith('/update_tx_group',{primary_radio_id:'bay',radio_ids:['rak','bay'],scope:'crossings'});
+  });
+  it('shows saved and running scope and enables save when only the scope changes', async () => {
+    api.get.mockResolvedValue({success:true,data:{groups:[{...state.groups[0], radio_ids:['rak','bay'], active_radio_ids:['rak','bay'], scope:'crossings', active_scope:'all'}]}});
+    const wrapper = mount(TxGroupSettings); await flushPromises();
+    expect(wrapper.text()).toContain('Running: rak → bay for every packet');
+    expect(wrapper.text()).toContain('Saved: rak → bay for bridged packets only');
+    const save = wrapper.findAll('button')[0]!;
+    expect(save.attributes('disabled')).toBeDefined();
+    await wrapper.get('select[aria-label="Packets sent through both transmitters"]').setValue('all');
+    expect(save.attributes('disabled')).toBeUndefined();
   });
 });
