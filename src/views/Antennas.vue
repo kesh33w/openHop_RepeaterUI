@@ -99,6 +99,8 @@ const networks = computed(() => (stats.value?.networks ?? []).filter(n => n.radi
     else if (r.unique_packets > 0) findings.push(`${radioLabel(r.radio_id)} caught ${fmt(r.unique_packets)} packets (${pct(r.unique_packets, n.packets)}%) no other antenna here heard.`);
   }
   for (const g of n.signal_gaps) {
+    // A shadow radio has no stored receptions; its finding above says so.
+    if (radioById.value.get(g.a)?.recorded === false || radioById.value.get(g.b)?.recorded === false) continue;
     findings.push(signalFinding(g));
   }
   return { ...n, radios, segments, findings };

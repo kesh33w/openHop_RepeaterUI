@@ -79,7 +79,7 @@ it('tells no data, not recorded and receive-only apart from zero', async () => {
     ],
     networks: [{ network: 'bay910', radios: ['g3910', 'rak910', 'v3910', 'rak911'], packets: 10,
       heard_by: [{ radios: ['g3910'], packets: 10 }],
-      signal_gaps: [{ a: 'g3910', b: 'rak910', frames: 3, rssi_db: 1, snr_db: 1 }] }],
+      signal_gaps: [{ a: 'g3910', b: 'rak910', frames: 3, rssi_db: 1, snr_db: 1 }, { a: 'g3910', b: 'v3910', frames: 0, rssi_db: null, snr_db: null }] }],
   }));
   const wrapper = mount(AntennasView); await flushPromises();
   const net = wrapper.get('[data-testid=antenna-network-bay910]');
@@ -93,4 +93,5 @@ it('tells no data, not recorded and receive-only apart from zero', async () => {
   expect(findings).toContain('V3910 is a shadow radio');
   expect(findings).toContain('No data was recorded for RAK911');
   expect(findings).toContain('too few of the same frames (3)');
+  expect(findings).not.toContain('V3910 heard too few');
 });
