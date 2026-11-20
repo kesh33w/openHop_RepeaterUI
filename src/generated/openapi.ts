@@ -498,7 +498,7 @@ export interface BridgeRadioPair {
   bridged: boolean;
   sent: number;
   failed: number;
-  /** The code most often on the air for this pair, read from the stored sent bytes (the last path hop of flood sends). Null when no flood send was stored. */
+  /** The code most often on the air for this pair, read from the stored sent bytes (the last path hop of flood sends). This node's own identity is always reported as node_code, also when a 1-byte path carried only its first byte. Null when no flood send was stored. */
   antenna_code: string | null;
   /** Up to three codes seen on the air for this pair, most used first. */
   antenna_codes: {
