@@ -4,6 +4,10 @@ Fork-specific changes to OpenHop Repeater UI. The format follows [Keep a Changel
 
 ## [Unreleased]
 
+### Added
+
+- **Bridge page** (Analytics → Bridge). Packets bridged in each direction with a timeline, what each network heard, repeated, bridged or did not send (with plain-language reasons), and sends per antenna pair with each pair's antenna code. Windows: 1 h, 6 h, 24 h, 7 days. Reads `/api/bridge_stats`.
+
 ## [1.1.0] - 2026-11-19
 
 ### Changed
