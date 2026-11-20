@@ -4,6 +4,8 @@ Fork-specific changes to OpenHop Repeater UI. The format follows [Keep a Changel
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-20
+
 ### Added
 
 - **Antennas page** (Analytics → Antennas). For each network with two or more antennas: who heard each packet (all antennas or only one), plain-language findings such as packets only one antenna caught and the signal difference between antennas, and a side-by-side table of signal, noise floor, corrupted packets, repeaters heard, sends and channel-busy waits. Reads `/api/antenna_stats`.
