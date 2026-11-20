@@ -4,6 +4,13 @@ Fork-specific changes to OpenHop Repeater UI. The format follows [Keep a Changel
 
 ## [Unreleased]
 
+### Fixed
+
+- **Antennas page claimed every receiver sends in a TX group.** Column labels now come from the running topology: "receives and sends", "receives; sends bridged packets only", "receives only" or "shadow: compared live, not recorded".
+- **Antennas page showed zeros where there was no data.** Cells say "No data", "Not recorded" (shadow radios) or "Does not send" instead.
+- **Antennas signal finding compared different relays and led with RSSI.** It now uses the same radio frames only, leads with SNR, says how many frames it is based on, notes that RSSI is not calibrated across radio models, and declines to compare on fewer than 30 frames. Bridge echoes get their own row and are left out of the other figures.
+- **Bridge page antenna codes** show the code actually sent (with "(own)" for this node's normal identity and a count of other codes seen), not today's alias settings. A failed history read shows an error rather than an empty page.
+
 ## [1.3.0] - 2026-11-20
 
 ### Added

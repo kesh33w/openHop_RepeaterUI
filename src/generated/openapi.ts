@@ -372,6 +372,10 @@ export interface CrcErrorSample {
 
 export interface AntennaStats {
   hours: number;
+  /** Two receptions of the same packet from the same relay this close in time count as one RF frame for signal_gaps. */
+  match_window_seconds: number;
+  /** Where radio roles and TX membership came from; null when the node has no topology. */
+  topology_source?: 'running' | 'config' | null;
   radios: AntennaRadioStats[];
   networks: AntennaNetworkStats[];
 }
@@ -380,10 +384,20 @@ export interface AntennaRadioStats {
   radio_id: string;
   network: string;
   role: string | null;
-  /** Packets received, duplicates included. */
+  /** False for shadow radios, whose receptions are not stored; their reception figures are not zero, they are unknown. */
+  recorded: boolean;
+  /** What the topology sends on this radio; null when it never transmits or the topology is unknown. */
+  transmits: 'all' | 'crossings' | null;
+  /** False when nothing at all was stored for this radio in the window. */
+  has_data: boolean;
+  /** Packets received, duplicates and bridge echoes included. */
   received: number;
   duplicates: number;
+  /** Receptions of neighbours repeating a packet this node bridged; left out of signal averages, coverage and upstream counts. */
+  bridge_echoes: number;
+  /** Bridge echoes excluded. */
   rssi_avg: number | null;
+  /** Bridge echoes excluded. */
   snr_avg: number | null;
   /** Packets no other antenna on this network heard. */
   unique_packets: number;
@@ -409,17 +423,18 @@ export interface AntennaRadioStats {
 export interface AntennaNetworkStats {
   network: string;
   radios: string[];
-  /** Distinct packets heard by any antenna on this network. */
+  /** Distinct packets heard by any antenna on this network, from any relay. Bridge echoes excluded. */
   packets: number;
   heard_by: {
     radios: string[];
     packets: number;
   }[];
-  /** Average signal of antenna a minus antenna b, for packets both heard. */
+  /** Average signal of antenna a minus antenna b over the same RF frames (same packet, same relay, within match_window_seconds). Bridge echoes excluded. */
   signal_gaps: {
     a: string;
     b: string;
-    packets: number;
+    /** Matched frames the averages are based on. */
+    frames: number;
     rssi_db: number | null;
     snr_db: number | null;
   }[];
@@ -428,6 +443,8 @@ export interface AntennaNetworkStats {
 export interface BridgeStats {
   /** False when the node has no two-network topology. */
   configured: boolean;
+  /** Hex of this node's own path hash, the code it sends as without antenna identities. */
+  node_code?: string | null;
   hours: number;
   bucket_seconds: number;
   networks: BridgeNetworkStats[];
@@ -481,8 +498,13 @@ export interface BridgeRadioPair {
   bridged: boolean;
   sent: number;
   failed: number;
-  /** 2-byte hex prefix of this pair's TX identity alias, when configured. */
+  /** The code most often on the air for this pair, read from the stored sent bytes (the last path hop of flood sends). This node's own identity is always reported as node_code, also when a 1-byte path carried only its first byte. Null when no flood send was stored. */
   antenna_code: string | null;
+  /** Up to three codes seen on the air for this pair, most used first. */
+  antenna_codes: {
+    code: string;
+    sends: number;
+  }[];
 }
 
 export interface RadioPacketRateSeries {

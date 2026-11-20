@@ -14,6 +14,7 @@ const stats = (over = {}) => ({
   data: {
     configured: true,
     hours: 24,
+    node_code: 'bd6e',
     bucket_seconds: 3600,
     networks: [
       { network: 'smf909', tx_radio: 'g3909', radios: ['g3909', 'rak909'], heard: 200, repeated_local: 30, bridged_out: 10, not_sent: 160, originated: 5, reasons: [{ reason: 'Channel bridge echo', count: 150 }] },
@@ -25,9 +26,9 @@ const stats = (over = {}) => ({
     ],
     local: [],
     radio_pairs: [
-      { rx_radio: 'rak910', tx_radio: 'rak909', rx_network: 'bay910', tx_network: 'smf909', bridged: true, sent: 25, failed: 0, antenna_code: '9c5b' },
-      { rx_radio: 'g3910', tx_radio: 'rak910', rx_network: 'bay910', tx_network: 'bay910', bridged: false, sent: 69, failed: 1, antenna_code: null },
-      { rx_radio: null, tx_radio: 'g3909', rx_network: null, tx_network: 'smf909', bridged: false, sent: 5, failed: 0, antenna_code: null },
+      { rx_radio: 'rak910', tx_radio: 'rak909', rx_network: 'bay910', tx_network: 'smf909', bridged: true, sent: 25, failed: 0, antenna_code: '9c5b', antenna_codes: [{ code: '9c5b', sends: 20 }, { code: 'bd6e', sends: 5 }] },
+      { rx_radio: 'g3910', tx_radio: 'rak910', rx_network: 'bay910', tx_network: 'bay910', bridged: false, sent: 69, failed: 1, antenna_code: 'bd6e', antenna_codes: [{ code: 'bd6e', sends: 69 }] },
+      { rx_radio: null, tx_radio: 'g3909', rx_network: null, tx_network: 'smf909', bridged: false, sent: 5, failed: 0, antenna_code: null, antenna_codes: [] },
     ],
     unattributed: { packets: 0, transmissions: 0 },
     ...over,
@@ -55,7 +56,8 @@ it('labels networks, reasons and antenna pairs in plain words', async () => {
   const rows = wrapper.get('[data-testid=bridge-pairs]').findAll('tbody tr').map(r => r.text());
   expect(rows[0]).toContain('RAK910');
   expect(rows[0]).toContain('Bridged');
-  expect(rows[0]).toContain('9c5b');
+  expect(rows[0]).toContain('9C5B +1');
+  expect(rows[1]).toContain('BD6E (own)');
   expect(rows[2]).toContain('Sent by this node');
 });
 
@@ -75,4 +77,11 @@ it('says so when no bridge is configured, and shows errors', async () => {
   api.get.mockRejectedValue(new Error('down'));
   await wrapper.findAll('button').find(b => b.text() === 'Refresh')!.trigger('click'); await flushPromises();
   expect(wrapper.get('[role=alert]').text()).toContain('unavailable');
+});
+
+it('reports an unreadable history as an error, not as no traffic', async () => {
+  api.get.mockResolvedValue({ success: false, error: 'Bridge statistics are unavailable' });
+  const wrapper = mount(BridgeView); await flushPromises();
+  expect(wrapper.get('[role=alert]').text()).toContain('unavailable');
+  expect(wrapper.text()).not.toContain('No transmissions in this window');
 });

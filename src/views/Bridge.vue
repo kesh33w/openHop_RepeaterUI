@@ -32,6 +32,14 @@ const hours = ref(24);
 const stats = ref<BridgeStats | null>(null);
 const loading = ref(false);
 const error = ref('');
+
+type Pair = BridgeStats['radio_pairs'][number];
+function codeLabel(p: Pair): string {
+  if (!p.antenna_code) return '—';
+  const own = stats.value?.node_code && p.antenna_code.toLowerCase() === stats.value.node_code.toLowerCase();
+  const more = p.antenna_codes.length > 1 ? ` +${p.antenna_codes.length - 1}` : '';
+  return `${p.antenna_code.toUpperCase()}${own ? ' (own)' : ''}${more}`;
+}
 const updatedAt = ref<Date | null>(null);
 let generation = 0;
 
@@ -211,7 +219,7 @@ function pairKind(p: BridgeStats['radio_pairs'][number]) {
           <h3 id="bridge-pairs-title">Antenna pairs</h3>
           <span class="badge">transmissions</span>
         </div>
-        <p class="muted">Which antenna heard each packet and which antenna sent it. A packet sent by a two-antenna group counts once per antenna. The code is what other nodes see as this repeater's hop when antenna identities are on.</p>
+        <p class="muted">Which antenna heard each packet and which antenna sent it. A packet sent by a two-antenna group counts once per antenna. The code is the hop other nodes actually saw for this pair, read from the bytes sent; "own" is this repeater's normal identity, used when antenna identities are off. Direct-routed sends carry no code.</p>
         <p v-if="!pairs.length" class="empty">No transmissions in this window.</p>
         <div v-else class="table-wrap">
           <table data-testid="bridge-pairs">
@@ -221,7 +229,7 @@ function pairKind(p: BridgeStats['radio_pairs'][number]) {
                 <td>{{ p.rx_radio === null ? '—' : radioLabel(p.rx_radio) }}</td>
                 <td>{{ radioLabel(p.tx_radio) }}</td>
                 <td><span class="badge" :class="{ confirmed: p.bridged }">{{ pairKind(p) }}</span></td>
-                <td class="mono">{{ p.antenna_code ?? '—' }}</td>
+                <td class="mono" :title="p.antenna_codes.map(c => `${c.code.toUpperCase()}: ${fmt(c.sends)}`).join(', ')">{{ codeLabel(p) }}</td>
                 <td class="num">{{ fmt(p.sent) }}</td>
                 <td class="num" :class="{ warn: p.failed > 0 }">{{ fmt(p.failed) }}</td>
               </tr>
