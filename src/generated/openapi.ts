@@ -370,6 +370,53 @@ export interface CrcErrorSample {
   radio_id?: string | null;
 }
 
+export interface RelayStats {
+  hours: number;
+  /** False on a node without a two-network topology. */
+  configured: boolean;
+  /** Whether per-radio identity codes are on; without them copies cannot be told apart. */
+  identity_codes?: boolean;
+  /** rx_tx or tx. */
+  identity_mode?: string | null;
+  /** Per network, whether its TX group shuffles which radio sends first. */
+  random_order?: Record<string, boolean>;
+  networks: RelayNetworkStats[];
+}
+
+export interface RelayNetworkStats {
+  network: string;
+  /** Packets sent by two radios of this network. */
+  double_sent: number;
+  /** Double sends whose copies carried different identity codes. */
+  tagged: number;
+  /** Double sends with identical copies (codes off, 1-byte paths or direct routes). */
+  untagged: number;
+  /** Tagged double sends at least one neighbour was heard relaying. */
+  relayed: number;
+  radios: RelayRadioStats[];
+  /** Up to 25 neighbours, most relays first. */
+  neighbours: RelayNeighbour[];
+}
+
+export interface RelayRadioStats {
+  radio_id: string;
+  /** The identity code this radio's copies carried (most common). */
+  code: string | null;
+  sent_first: number;
+  /** Tagged packets where a neighbour relayed this radio's copy. */
+  relayed: number;
+  relayed_when_first: number;
+  relayed_when_second: number;
+}
+
+export interface RelayNeighbour {
+  /** The neighbour's path hash (hex) as it appears after our code. */
+  neighbour: string;
+  relays: number;
+  /** Relays per radio whose copy the neighbour relayed. */
+  by_radio: Record<string, number>;
+}
+
 export interface AntennaStats {
   hours: number;
   /** Two receptions of the same packet from the same relay this close in time count as one RF frame for signal_gaps. */
@@ -5529,6 +5576,42 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
         any
       >({
         path: `/antenna_stats`,
+        method: 'GET',
+        query: query,
+        secure: true,
+        format: 'json',
+        ...params,
+      }),
+  };
+  relayStats = {
+    /**
+     * @description For packets a TX group sent through two radios, which radio's copy each neighbour relayed (read from the identity code in front of the neighbour's hop in relays heard back) and whether that copy went first or second. Needs per-radio identity codes; packets whose copies are identical are counted as untagged.
+     *
+     * @tags Charts
+     * @name RelayStatsList
+     * @summary Which copy of each double-sent packet neighbours relayed
+     * @request GET:/relay_stats
+     * @secure
+     */
+    relayStatsList: (
+      query?: {
+        /**
+         * @min 1
+         * @max 168
+         * @default 24
+         */
+        hours?: number;
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<
+        {
+          success?: boolean;
+          data?: RelayStats;
+        },
+        any
+      >({
+        path: `/relay_stats`,
         method: 'GET',
         query: query,
         secure: true,
