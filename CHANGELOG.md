@@ -4,6 +4,8 @@ Fork-specific changes to OpenHop Repeater UI. The format follows [Keep a Changel
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-11-20
+
 ### Fixed
 
 - **Antennas page claimed every receiver sends in a TX group.** Column labels now come from the running topology: "receives and sends", "receives; sends bridged packets only", "receives only" or "shadow: compared live, not recorded".
