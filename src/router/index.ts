@@ -36,6 +36,12 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/antennas',
+      name: 'antennas',
+      component: () => import('@/views/Antennas.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/bridge',
       name: 'bridge',
       component: () => import('@/views/Bridge.vue'),

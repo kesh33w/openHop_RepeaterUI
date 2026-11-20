@@ -370,6 +370,61 @@ export interface CrcErrorSample {
   radio_id?: string | null;
 }
 
+export interface AntennaStats {
+  hours: number;
+  radios: AntennaRadioStats[];
+  networks: AntennaNetworkStats[];
+}
+
+export interface AntennaRadioStats {
+  radio_id: string;
+  network: string;
+  role: string | null;
+  /** Packets received, duplicates included. */
+  received: number;
+  duplicates: number;
+  rssi_avg: number | null;
+  snr_avg: number | null;
+  /** Packets no other antenna on this network heard. */
+  unique_packets: number;
+  noise: {
+    avg: number | null;
+    p10: number | null;
+    p90: number | null;
+    samples: number;
+  };
+  crc_errors: number;
+  crc_errors_per_hour: number;
+  /** Distinct repeaters this antenna heard relaying packets to us. */
+  upstream_repeaters: number;
+  /** Upstream repeaters no other antenna on this network heard. */
+  unique_upstream_repeaters: number;
+  sends: number;
+  send_failures: number;
+  /** Sends that waited because the channel was busy. */
+  busy_holds: number;
+  backoff_avg_ms: number | null;
+}
+
+export interface AntennaNetworkStats {
+  network: string;
+  radios: string[];
+  /** Distinct packets heard by any antenna on this network. */
+  packets: number;
+  heard_by: {
+    radios: string[];
+    packets: number;
+  }[];
+  /** Average signal of antenna a minus antenna b, for packets both heard. */
+  signal_gaps: {
+    a: string;
+    b: string;
+    packets: number;
+    rssi_db: number | null;
+    snr_db: number | null;
+  }[];
+}
+
 export interface BridgeStats {
   /** False when the node has no two-network topology. */
   configured: boolean;
@@ -5419,6 +5474,42 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
         path: `/airtime_data`,
         method: 'GET',
         query: query,
+        format: 'json',
+        ...params,
+      }),
+  };
+  antennaStats = {
+    /**
+     * @description Per radio, from stored history: packets received and the share only that antenna heard, average RSSI/SNR, noise floor, CRC errors, upstream repeaters heard, and sends with listen-before-talk holds. Per network: which combination of antennas heard each packet, and the average signal difference between antennas.
+     *
+     * @tags Charts
+     * @name AntennaStatsList
+     * @summary Compare antennas on each network
+     * @request GET:/antenna_stats
+     * @secure
+     */
+    antennaStatsList: (
+      query?: {
+        /**
+         * @min 1
+         * @max 168
+         * @default 24
+         */
+        hours?: number;
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<
+        {
+          success?: boolean;
+          data?: AntennaStats;
+        },
+        any
+      >({
+        path: `/antenna_stats`,
+        method: 'GET',
+        query: query,
+        secure: true,
         format: 'json',
         ...params,
       }),
