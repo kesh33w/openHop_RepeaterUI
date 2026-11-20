@@ -370,6 +370,66 @@ export interface CrcErrorSample {
   radio_id?: string | null;
 }
 
+export interface BridgeStats {
+  /** False when the node has no two-network topology. */
+  configured: boolean;
+  hours: number;
+  bucket_seconds: number;
+  networks: BridgeNetworkStats[];
+  /** Bridged packets, one entry per direction. */
+  directions: BridgeTrafficSeries[];
+  /** Packets repeated on the network they were heard on. */
+  local: BridgeTrafficSeries[];
+  radio_pairs: BridgeRadioPair[];
+  unattributed: {
+    packets: number;
+    transmissions: number;
+  };
+}
+
+export interface BridgeNetworkStats {
+  network: string;
+  tx_radio: string;
+  radios: string[];
+  /** Non-duplicate packets heard on this network. */
+  heard: number;
+  repeated_local: number;
+  bridged_out: number;
+  not_sent: number;
+  /** Packets this node created and sent on this network. */
+  originated: number;
+  /** Most common reasons heard packets were not sent. */
+  reasons: {
+    reason: string;
+    count: number;
+  }[];
+}
+
+export interface BridgeTrafficSeries {
+  from?: string;
+  to?: string;
+  network?: string;
+  packets: number;
+  /** Non-empty buckets, oldest first. */
+  buckets: {
+    timestamp: number;
+    count: number;
+  }[];
+}
+
+export interface BridgeRadioPair {
+  /** Null for packets this node originated. */
+  rx_radio: string | null;
+  tx_radio: string;
+  rx_network: string | null;
+  tx_network: string;
+  bridged: boolean;
+  sent: number;
+  failed: number;
+  /** 2-byte hex prefix of this pair's TX identity alias, when configured. */
+  antenna_code: string | null;
+}
+
 export interface RadioPacketRateSeries {
   radio_id?: string;
   rx_total?: number;
@@ -5359,6 +5419,42 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
         path: `/airtime_data`,
         method: 'GET',
         query: query,
+        format: 'json',
+        ...params,
+      }),
+  };
+  bridgeStats = {
+    /**
+     * @description Packets heard on one topology network and sent on the other, per direction and over time, from stored packet history. Network figures count packets once even when an ordered TX group sent them on two antennas; radio pairs count physical transmissions. Radios no longer configured are reported as unattributed.
+     *
+     * @tags Bridge
+     * @name BridgeStatsList
+     * @summary Get bridged and local traffic per network
+     * @request GET:/bridge_stats
+     * @secure
+     */
+    bridgeStatsList: (
+      query?: {
+        /**
+         * @min 1
+         * @max 168
+         * @default 24
+         */
+        hours?: number;
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<
+        {
+          success?: boolean;
+          data?: BridgeStats;
+        },
+        any
+      >({
+        path: `/bridge_stats`,
+        method: 'GET',
+        query: query,
+        secure: true,
         format: 'json',
         ...params,
       }),
