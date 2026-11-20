@@ -52,6 +52,34 @@ const fmt = (n: number) => n.toLocaleString();
 const pct = (part: number, whole: number) => (whole > 0 ? Math.round((part / whole) * 100) : 0);
 const db = (v: number | null | undefined, unit = 'dBm') => (v === null || v === undefined ? '—' : `${v.toFixed(1)} ${unit}`);
 
+type Gap = AntennaStats['networks'][number]['signal_gaps'][number];
+// Fewer matched frames than this and an average says little.
+const MIN_FRAMES = 30;
+
+// SNR decides whether a packet decodes and is comparable between radio models;
+// RSSI is not calibrated between them, so it is reported but not led with.
+function signalFinding(g: Gap): string {
+  const a = radioLabel(g.a), b = radioLabel(g.b);
+  if (g.frames < MIN_FRAMES) {
+    return `${a} and ${b} heard too few of the same frames (${fmt(g.frames)}) to compare their signal fairly.`;
+  }
+  const rssi = g.rssi_db === null ? '' : ` RSSI differs by ${Math.abs(g.rssi_db).toFixed(1)} dB, but RSSI is not calibrated the same across radio models.`;
+  if (g.snr_db === null) return `On ${fmt(g.frames)} frames both heard from the same relay, SNR was not recorded.${rssi}`;
+  const gap = Math.abs(g.snr_db);
+  const better = g.snr_db >= 0 ? a : b, worse = g.snr_db >= 0 ? b : a;
+  return gap < 1
+    ? `On ${fmt(g.frames)} frames both heard from the same relay, ${a} and ${b} decode at about the same SNR.${rssi}`
+    : `On ${fmt(g.frames)} frames both heard from the same relay, ${better} gets ${gap.toFixed(1)} dB better SNR than ${worse}.${rssi}`;
+}
+
+function roleLabel(r: AntennaRadioStats): string {
+  if (!stats.value?.topology_source) return '';
+  if (r.role === 'shadow') return 'shadow: compared live, not recorded';
+  if (r.transmits === 'all') return 'receives and sends';
+  if (r.transmits === 'crossings') return 'receives; sends bridged packets only';
+  return 'receives only';
+}
+
 const radioById = computed(() => new Map((stats.value?.radios ?? []).map(r => [r.radio_id, r])));
 
 // Only networks with two or more antennas have anything to compare.
@@ -66,35 +94,41 @@ const networks = computed(() => (stats.value?.networks ?? []).filter(n => n.radi
   }));
   const findings: string[] = [];
   for (const r of radios) {
-    if (r.unique_packets > 0) findings.push(`${radioLabel(r.radio_id)} caught ${fmt(r.unique_packets)} packets (${pct(r.unique_packets, n.packets)}%) no other antenna here heard.`);
+    if (!r.recorded) findings.push(`${radioLabel(r.radio_id)} is a shadow radio: its receptions are compared live but not recorded, so it cannot be judged here.`);
+    else if (!r.has_data) findings.push(`No data was recorded for ${radioLabel(r.radio_id)} in this window.`);
+    else if (r.unique_packets > 0) findings.push(`${radioLabel(r.radio_id)} caught ${fmt(r.unique_packets)} packets (${pct(r.unique_packets, n.packets)}%) no other antenna here heard.`);
   }
   for (const g of n.signal_gaps) {
-    if (g.rssi_db === null || g.packets === 0) continue;
-    const stronger = g.rssi_db >= 0 ? g.a : g.b;
-    const weaker = g.rssi_db >= 0 ? g.b : g.a;
-    const gap = Math.abs(g.rssi_db);
-    findings.push(gap < 1
-      ? `${radioLabel(g.a)} and ${radioLabel(g.b)} hear shared packets at about the same strength.`
-      : `On the ${fmt(g.packets)} packets both heard, ${radioLabel(stronger)} hears them ${gap.toFixed(1)} dB stronger than ${radioLabel(weaker)}.`);
+    findings.push(signalFinding(g));
   }
   return { ...n, radios, segments, findings };
 }));
 const hasComparison = computed(() => networks.value.length > 0);
 
-type Row = { label: string; hint: string; value: (r: AntennaRadioStats) => string; warn?: (r: AntennaRadioStats) => boolean };
+// rx rows depend on stored receptions, tx rows on the radio sending at all.
+type Row = { label: string; hint: string; kind?: 'rx' | 'tx'; value: (r: AntennaRadioStats) => string; warn?: (r: AntennaRadioStats) => boolean };
 const rows: Row[] = [
-  { label: 'Packets received', hint: 'Every copy heard, duplicates included', value: r => fmt(r.received) },
-  { label: 'Only this antenna', hint: 'Packets no other antenna on this network heard', value: r => fmt(r.unique_packets) },
-  { label: 'Average signal', hint: 'RSSI of received packets', value: r => db(r.rssi_avg) },
-  { label: 'Average SNR', hint: 'Signal-to-noise ratio of received packets', value: r => db(r.snr_avg, 'dB') },
+  { label: 'Packets received', hint: 'Every copy heard, duplicates and bridge echoes included', kind: 'rx', value: r => fmt(r.received) },
+  { label: 'Only this antenna', hint: 'Packets no other antenna on this network heard', kind: 'rx', value: r => fmt(r.unique_packets) },
+  { label: 'Bridge echoes', hint: 'Neighbours repeating packets we bridged; left out of the other figures', kind: 'rx', value: r => fmt(r.bridge_echoes) },
+  { label: 'Average signal', hint: 'RSSI of received packets', kind: 'rx', value: r => db(r.rssi_avg) },
+  { label: 'Average SNR', hint: 'Signal-to-noise ratio of received packets', kind: 'rx', value: r => db(r.snr_avg, 'dB') },
   { label: 'Noise floor', hint: 'Average, with the quiet (10%) to busy (90%) range', value: r => r.noise.avg === null ? '—' : `${db(r.noise.avg)} (${r.noise.p10} to ${r.noise.p90})` },
   { label: 'Corrupted packets', hint: 'CRC errors per hour', value: r => `${r.crc_errors_per_hour} / h` },
-  { label: 'Repeaters heard', hint: 'Distinct repeaters heard relaying to us; in brackets, how many only this antenna heard', value: r => `${r.upstream_repeaters} (${r.unique_upstream_repeaters} only here)` },
-  { label: 'Sends', hint: 'Transmissions on this antenna', value: r => fmt(r.sends) },
-  { label: 'Waited for a busy channel', hint: 'Sends that held off because the channel was busy', value: r => r.sends ? `${fmt(r.busy_holds)} (${pct(r.busy_holds, r.sends)}%)` : '—', warn: r => r.sends > 0 && r.busy_holds / r.sends > 0.4 },
-  { label: 'Average wait before sending', hint: 'Listen-before-talk back-off per send', value: r => r.backoff_avg_ms === null ? '—' : `${Math.round(r.backoff_avg_ms)} ms` },
-  { label: 'Failed sends', hint: 'The radio reported it could not transmit', value: r => fmt(r.send_failures), warn: r => r.send_failures > 0 },
+  { label: 'Repeaters heard', hint: 'Distinct repeaters heard relaying to us; in brackets, how many only this antenna heard', kind: 'rx', value: r => `${r.upstream_repeaters} (${r.unique_upstream_repeaters} only here)` },
+  { label: 'Sends', hint: 'Transmissions on this antenna', kind: 'tx', value: r => fmt(r.sends) },
+  { label: 'Waited for a busy channel', hint: 'Sends that held off because the channel was busy', kind: 'tx', value: r => r.sends ? `${fmt(r.busy_holds)} (${pct(r.busy_holds, r.sends)}%)` : '—', warn: r => r.sends > 0 && r.busy_holds / r.sends > 0.4 },
+  { label: 'Average wait before sending', hint: 'Listen-before-talk back-off per send', kind: 'tx', value: r => r.backoff_avg_ms === null ? '—' : `${Math.round(r.backoff_avg_ms)} ms` },
+  { label: 'Failed sends', hint: 'The radio reported it could not transmit', kind: 'tx', value: r => fmt(r.send_failures), warn: r => r.send_failures > 0 },
 ];
+
+// "No data" and "not recorded" are not zero: say which.
+function cell(row: Row, r: AntennaRadioStats): { text: string; missing: boolean } {
+  if (row.kind === 'rx' && !r.recorded) return { text: 'Not recorded', missing: true };
+  if (!r.has_data) return { text: 'No data', missing: true };
+  if (row.kind === 'tx' && !r.sends && stats.value?.topology_source && !r.transmits) return { text: 'Does not send', missing: true };
+  return { text: row.value(r), missing: false };
+}
 </script>
 
 <template>
@@ -150,14 +184,14 @@ const rows: Row[] = [
             <tr>
               <th scope="col"><span class="sr-only">Measure</span></th>
               <th v-for="r in n.radios" :key="r.radio_id" scope="col" class="num">
-                {{ radioLabel(r.radio_id) }}<small v-if="r.role">{{ r.role === 'transceiver' ? 'sends and receives' : r.role === 'receiver' ? 'receives (sends in TX group)' : r.role }}</small>
+                {{ radioLabel(r.radio_id) }}<small v-if="roleLabel(r)">{{ roleLabel(r) }}</small>
               </th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="row in rows" :key="row.label">
               <th scope="row">{{ row.label }}<small>{{ row.hint }}</small></th>
-              <td v-for="r in n.radios" :key="r.radio_id" class="num" :class="{ warn: row.warn?.(r) }">{{ row.value(r) }}</td>
+              <td v-for="r in n.radios" :key="r.radio_id" class="num" :class="cell(row, r).missing ? 'missing' : { warn: row.warn?.(r) }">{{ cell(row, r).text }}</td>
             </tr>
           </tbody>
         </table>
@@ -167,7 +201,9 @@ const rows: Row[] = [
     <details v-if="hasComparison" class="help-details">
       <summary>How to read this</summary>
       <p>Antennas are compared only with others on the same network (same frequency). A packet counts once per network; "only this antenna" packets are what that antenna adds.</p>
-      <p>The signal difference uses only packets both antennas heard, so it reflects the antennas and their cabling rather than which packets each catches. A noisy channel (higher noise floor) makes a radio wait more often before sending.</p>
+      <p>"Who heard each packet" is coverage: a message counts as heard by an antenna whichever relay it came from.</p>
+      <p>The signal comparison is stricter: only the same radio frame (the same packet from the same relay, within {{ stats?.match_window_seconds ?? 1 }} s) heard by both antennas, so it reflects the antennas and their cabling rather than which relays each hears. SNR is the fair comparison; RSSI is not calibrated the same across radio models.</p>
+      <p>Bridge echoes, neighbours repeating packets this node bridged onto their network, are left out of coverage and signal. A noisy channel (higher noise floor) makes a radio wait more often before sending.</p>
       <p>Radios that are no longer configured, such as names used before a rename, are left out.</p>
     </details>
   </section>
@@ -202,6 +238,7 @@ tbody th { text-align: left; font-weight: 600; color: var(--color-text-secondary
 th small { display: block; font-weight: 400; font-size: .68rem; color: var(--color-text-muted); }
 .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--color-text-primary); }
 .warn { color: var(--color-badge-amber-text); font-weight: 600; }
+.missing { font-style: italic; opacity: .75; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 .help-details { color: var(--color-text-muted); font-size: .78rem; }
 .help-details summary { cursor: pointer; color: var(--color-text-secondary); }
