@@ -4,6 +4,10 @@ Fork-specific changes to OpenHop Repeater UI. The format follows [Keep a Changel
 
 ## [Unreleased]
 
+### Added
+
+- **Antennas: which copy neighbours relayed.** Where two antennas send the same packet, the Antennas page shows, per antenna, how often neighbours relayed its copy, split by whether it went first or second, and which neighbours relayed which copy (from `GET /api/relay_stats`). It says when identity codes are off or copies cannot be told apart, and the rest of the page still loads if this part fails.
+
 ## [1.3.1] - 2026-11-20
 
 ### Fixed

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import ApiService from '@/utils/api';
-import type { AntennaRadioStats, AntennaStats } from '@/generated/openapi';
+import type { AntennaRadioStats, AntennaStats, RelayNetworkStats, RelayStats } from '@/generated/openapi';
 import { useMultiRadioConfig } from '@/composables/useMultiRadioConfig';
 
 defineOptions({ name: 'AntennasView' });
@@ -18,6 +18,8 @@ const REFRESH_MS = 60_000;
 
 const hours = ref(24);
 const stats = ref<AntennaStats | null>(null);
+const relays = ref<RelayStats | null>(null);
+const relayError = ref('');
 const loading = ref(false);
 const error = ref('');
 const updatedAt = ref<Date | null>(null);
@@ -27,8 +29,18 @@ async function refresh() {
   const mine = ++generation;
   loading.value = true;
   try {
-    const response = await ApiService.get<AntennaStats>('/antenna_stats', { hours: hours.value });
+    // Relay attribution is a separate, optional view: its failure must not hide the rest.
+    const [response, relayResponse] = await Promise.all([
+      ApiService.get<AntennaStats>('/antenna_stats', { hours: hours.value }),
+      ApiService.get<RelayStats>('/relay_stats', { hours: hours.value }).catch(() => null),
+    ]);
     if (mine !== generation) return;
+    if (relayResponse?.success && relayResponse.data) {
+      relays.value = relayResponse.data;
+      relayError.value = '';
+    } else {
+      relayError.value = 'Which copy neighbours relayed is unavailable right now.';
+    }
     if (!response.success || !response.data) throw new Error(response.error || 'unavailable');
     stats.value = response.data;
     updatedAt.value = new Date();
@@ -40,7 +52,7 @@ async function refresh() {
   }
 }
 
-watch(hours, () => { stats.value = null; void refresh(); });
+watch(hours, () => { stats.value = null; relays.value = null; void refresh(); });
 let timer: ReturnType<typeof setInterval> | undefined;
 onMounted(() => {
   void refresh();
@@ -82,6 +94,30 @@ function roleLabel(r: AntennaRadioStats): string {
 
 const radioById = computed(() => new Map((stats.value?.radios ?? []).map(r => [r.radio_id, r])));
 
+// Which copy of a double send neighbours relayed. A neighbour relays the copy it
+// hears first and drops the other, so a relay of the second copy is reach the
+// second send added.
+type RelayView = RelayNetworkStats & { addedBySecond: number; finding: string };
+const relayByNetwork = computed(() => {
+  const out = new Map<string, RelayView>();
+  for (const n of relays.value?.networks ?? []) {
+    if (!n.double_sent) continue;
+    const addedBySecond = n.radios.reduce((sum, r) => sum + r.relayed_when_second, 0);
+    let finding = '';
+    if (n.tagged === 0) {
+      finding = relays.value?.identity_codes
+        ? 'None of the double-sent packets could be told apart yet: both copies carried the same code (1-byte paths and direct routes cannot carry per-radio codes).'
+        : 'Identity codes are off, so both copies carry the same code and the relays cannot be told apart.';
+    } else if (n.relayed === 0) {
+      finding = `No neighbour was heard relaying any of the ${fmt(n.tagged)} packets whose copies could be told apart.`;
+    } else {
+      finding = `The second copy was relayed on ${fmt(addedBySecond)} of ${fmt(n.tagged)} packets (${pct(addedBySecond, n.tagged)}%): neighbours that had not heard the first copy.`;
+    }
+    out.set(n.network, { ...n, addedBySecond, finding });
+  }
+  return out;
+});
+
 // Only networks with two or more antennas have anything to compare.
 const networks = computed(() => (stats.value?.networks ?? []).filter(n => n.radios.length > 1).map(n => {
   const radios = n.radios.map(id => radioById.value.get(id)).filter((r): r is AntennaRadioStats => !!r);
@@ -103,9 +139,11 @@ const networks = computed(() => (stats.value?.networks ?? []).filter(n => n.radi
     if (radioById.value.get(g.a)?.recorded === false || radioById.value.get(g.b)?.recorded === false) continue;
     findings.push(signalFinding(g));
   }
-  return { ...n, radios, segments, findings };
+  return { ...n, radios, segments, findings, relay: relayByNetwork.value.get(n.network) };
 }));
 const hasComparison = computed(() => networks.value.length > 0);
+
+
 
 // rx rows depend on stored receptions, tx rows on the radio sending at all.
 type Row = { label: string; hint: string; kind?: 'rx' | 'tx'; value: (r: AntennaRadioStats) => string; warn?: (r: AntennaRadioStats) => boolean };
@@ -180,6 +218,58 @@ function cell(row: Row, r: AntennaRadioStats): { text: string; missing: boolean 
         <li v-for="f in n.findings" :key="f">{{ f }}</li>
       </ul>
 
+      <template v-if="n.relay">
+        <h4 class="relay-heading">Which copy neighbours relayed</h4>
+        <p class="muted">
+          {{ fmt(n.relay.double_sent) }} packets sent on two antennas{{ relays?.random_order?.[n.network] ? ' in random order' : '' }};
+          {{ fmt(n.relay.tagged) }} could be told apart, {{ fmt(n.relay.relayed) }} of those heard relayed.
+        </p>
+        <ul class="findings" data-testid="relay-finding"><li>{{ n.relay.finding }}</li></ul>
+        <div v-if="n.relay.tagged > 0" class="table-wrap">
+          <table data-testid="relay-radios">
+            <thead>
+              <tr>
+                <th scope="col">Copy from</th>
+                <th scope="col" class="num">Code</th>
+                <th scope="col" class="num">Went first</th>
+                <th scope="col" class="num">Relayed</th>
+                <th scope="col" class="num">…when it went first</th>
+                <th scope="col" class="num">…when it went second</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="r in n.relay.radios" :key="r.radio_id">
+                <th scope="row">{{ radioLabel(r.radio_id) }}</th>
+                <td class="num">{{ r.code?.toUpperCase() ?? '—' }}</td>
+                <td class="num">{{ fmt(r.sent_first) }}</td>
+                <td class="num">{{ fmt(r.relayed) }}</td>
+                <td class="num">{{ fmt(r.relayed_when_first) }}</td>
+                <td class="num">{{ fmt(r.relayed_when_second) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div v-if="n.relay.neighbours.length" class="table-wrap">
+          <table data-testid="relay-neighbours">
+            <thead>
+              <tr>
+                <th scope="col">Neighbour</th>
+                <th scope="col" class="num">Relays</th>
+                <th v-for="r in n.relay.radios" :key="r.radio_id" scope="col" class="num">{{ radioLabel(r.radio_id) }}'s copy</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="nb in n.relay.neighbours" :key="nb.neighbour">
+                <th scope="row">{{ nb.neighbour }}</th>
+                <td class="num">{{ fmt(nb.relays) }}</td>
+                <td v-for="r in n.relay.radios" :key="r.radio_id" class="num">{{ fmt(nb.by_radio[r.radio_id] ?? 0) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </template>
+      <p v-else-if="relayError" class="muted">{{ relayError }}</p>
+
       <div class="table-wrap">
         <table>
           <thead>
@@ -207,6 +297,7 @@ function cell(row: Row, r: AntennaRadioStats): { text: string; missing: boolean 
       <p>The signal comparison is stricter: only the same radio frame (the same packet from the same relay, within {{ stats?.match_window_seconds ?? 1 }} s) heard by both antennas, so it reflects the antennas and their cabling rather than which relays each hears. SNR is the fair comparison; RSSI is not calibrated the same across radio models.</p>
       <p>Bridge echoes, neighbours repeating packets this node bridged onto their network, are left out of coverage and signal. A noisy channel (higher noise floor) makes a radio wait more often before sending.</p>
       <p>Radios that are no longer configured, such as names used before a rename, are left out.</p>
+      <p>"Which copy neighbours relayed" applies where two antennas send the same packet. With per-radio identity codes each copy carries its antenna's code, and a neighbour relays whichever copy it hears first, so the relays this node hears back show which antenna's copy reached that neighbour. A relay of the copy that went second means that neighbour had not heard the first. Random order lets each antenna go first about half the time, so neither wins just by going first. Copies sent on 1-byte paths or direct routes cannot carry a code and are not counted. Only relays this node itself hears are seen.</p>
     </details>
   </section>
 </template>
@@ -242,6 +333,7 @@ th small { display: block; font-weight: 400; font-size: .68rem; color: var(--col
 .warn { color: var(--color-badge-amber-text); font-weight: 600; }
 .missing { font-style: italic; opacity: .75; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.relay-heading { margin-top: 1.1rem; }
 .help-details { color: var(--color-text-muted); font-size: .78rem; }
 .help-details summary { cursor: pointer; color: var(--color-text-secondary); }
 .help-details p { margin-top: .5rem; line-height: 1.6; }

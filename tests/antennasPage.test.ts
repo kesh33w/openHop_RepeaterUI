@@ -60,7 +60,8 @@ it('explains when there is nothing to compare, and reloads per window', async ()
   const wrapper = mount(AntennasView); await flushPromises();
   expect(wrapper.find('[data-testid=antennas-single]').exists()).toBe(true);
   await wrapper.get('[data-testid=antenna-window]').setValue('168'); await flushPromises();
-  expect(api.get).toHaveBeenLastCalledWith('/antenna_stats', { hours: 168 });
+  expect(api.get).toHaveBeenCalledWith('/antenna_stats', { hours: 168 });
+  expect(api.get).toHaveBeenCalledWith('/relay_stats', { hours: 168 });
 });
 
 it('shows an error when statistics cannot be loaded', async () => {
@@ -94,4 +95,53 @@ it('tells no data, not recorded and receive-only apart from zero', async () => {
   expect(findings).toContain('No data was recorded for RAK911');
   expect(findings).toContain('too few of the same frames (3)');
   expect(findings).not.toContain('V3910 heard too few');
+});
+
+const relayStats = (over = {}) => ({
+  success: true,
+  data: {
+    hours: 24, configured: true, identity_codes: true, identity_mode: 'tx',
+    random_order: { smf909: true },
+    networks: [{
+      network: 'smf909', double_sent: 400, tagged: 300, untagged: 100, relayed: 120,
+      radios: [
+        { radio_id: 'g3909', code: '2855', sent_first: 150, relayed: 90, relayed_when_first: 80, relayed_when_second: 10 },
+        { radio_id: 'rak909', code: '8859', sent_first: 150, relayed: 60, relayed_when_first: 45, relayed_when_second: 15 },
+      ],
+      neighbours: [{ neighbour: '0094', relays: 70, by_radio: { g3909: 50, rak909: 20 } }],
+    }],
+    ...over,
+  },
+});
+
+function route(relays: unknown) {
+  api.get.mockImplementation((url: string) =>
+    url === '/relay_stats' ? (relays instanceof Error ? Promise.reject(relays) : Promise.resolve(relays)) : Promise.resolve(stats()));
+}
+
+it('shows which copy neighbours relayed, per antenna and position', async () => {
+  route(relayStats());
+  const wrapper = mount(AntennasView); await flushPromises();
+  expect(api.get).toHaveBeenCalledWith('/relay_stats', { hours: 24 });
+  const net = wrapper.get('[data-testid=antenna-network-smf909]');
+  expect(net.text()).toContain('400 packets sent on two antennas in random order');
+  expect(net.get('[data-testid=relay-finding]').text()).toBe(
+    'The second copy was relayed on 25 of 300 packets (8%): neighbours that had not heard the first copy.');
+  const rows = net.get('[data-testid=relay-radios]').findAll('tbody tr').map(r => r.text());
+  expect(rows[1]).toContain('RAK909');
+  expect(rows[1]).toContain('8859');
+  expect(net.get('[data-testid=relay-neighbours]').text()).toContain("RAK909's copy");
+});
+
+it('says when identity codes are off, and keeps the page when relays fail', async () => {
+  route(relayStats({ identity_codes: false, networks: [{ network: 'smf909', double_sent: 50, tagged: 0, untagged: 50, relayed: 0, radios: [], neighbours: [] }] }));
+  let wrapper = mount(AntennasView); await flushPromises();
+  expect(wrapper.get('[data-testid=relay-finding]').text()).toContain('Identity codes are off');
+  expect(wrapper.find('[data-testid=relay-radios]').exists()).toBe(false);
+
+  route(new Error('down'));
+  wrapper = mount(AntennasView); await flushPromises();
+  const net = wrapper.get('[data-testid=antenna-network-smf909]');
+  expect(net.text()).toContain('Which copy neighbours relayed is unavailable right now.');
+  expect(net.text()).toContain('All antennas 1,710');
 });
