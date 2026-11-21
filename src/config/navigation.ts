@@ -32,7 +32,7 @@ export type NavItemConfig = {
    * Must be a key in knownCapabilities — enforced by the type and the test suite.
    */
   enabledWhen?: Capability
-  /** A HydraHop (fork) feature: shown with a small "HH" badge. */
+  /** A HydraHop (fork) feature: shown with a small fork icon. */
   hydrahop?: boolean
   /** HydraHop release that added or changed this page; shows a "new" dot until opened. */
   newIn?: string
