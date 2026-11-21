@@ -32,6 +32,10 @@ export type NavItemConfig = {
    * Must be a key in knownCapabilities — enforced by the type and the test suite.
    */
   enabledWhen?: Capability
+  /** A HydraHop (fork) feature: shown with a small "HH" badge. */
+  hydrahop?: boolean
+  /** HydraHop release that added or changed this page; shows a "new" dot until opened. */
+  newIn?: string
 }
 
 /**
@@ -58,8 +62,8 @@ export const navigationItems: NavItemConfig[] = [
     id: 'analytics', label: 'Analytics', icon: BarChart2,
     children: [
       { id: 'statistics', label: 'Statistics', icon: BarChart2,  route: '/statistics' },
-      { id: 'bridge',     label: 'Bridge',     icon: Repeat2,    route: '/bridge' },
-      { id: 'antennas',   label: 'Antennas',   icon: Antenna,    route: '/antennas' },
+      { id: 'bridge',     label: 'Bridge',     icon: Repeat2,    route: '/bridge', hydrahop: true },
+      { id: 'antennas',   label: 'Antennas',   icon: Antenna,    route: '/antennas', hydrahop: true, newIn: '1.5' },
       { id: 'rf-health-correlation', label: 'RF Health Correlation', icon: BarChart2, route: '/rf-health-correlation' },
       { id: 'neighbor-links', label: 'Neighbour Links', icon: Cable, route: '/neighbor-links' },
       { id: 'packet-archive', label: 'Packet Archive', icon: ScrollText, route: '/packet-archive' },
@@ -78,7 +82,7 @@ export const navigationItems: NavItemConfig[] = [
             activeOn: ['/configuration'],
             children: [
               { id: 'config-radio-settings', label: 'Radio Settings',    icon: Radio,    route: '/configuration', params: { tab: 'radio' },          activeOn: ['/configuration'] },
-              { id: 'config-radio-names', label: 'Radio Names', icon: Radio, route: '/configuration', params: { tab: 'radio-names' }, activeOn: ['/configuration'] },
+              { id: 'config-radio-names', label: 'Radio Names', icon: Radio, route: '/configuration', params: { tab: 'radio-names' }, activeOn: ['/configuration'], hydrahop: true },
               { id: 'config-radio-hardware', label: 'Radio Hardware',    icon: Antenna,  route: '/configuration', params: { tab: 'radio-hardware' }, activeOn: ['/configuration'] },
               { id: 'config-repeater',       label: 'Repeater',          icon: Repeat2,  route: '/configuration', params: { tab: 'repeater' },       activeOn: ['/configuration'] },
               { id: 'config-duty',           label: 'Duty Cycle',        icon: Percent,  route: '/configuration', params: { tab: 'duty' },           activeOn: ['/configuration'] },
@@ -90,7 +94,7 @@ export const navigationItems: NavItemConfig[] = [
             activeOn: ['/configuration'],
             children: [
               { id: 'config-advert',        label: 'Advert Limits',        icon: Megaphone, route: '/configuration', params: { tab: 'advert' },        activeOn: ['/configuration'] },
-              { id: 'config-bridge', label: 'Bridge', icon: Repeat2, route: '/configuration', params: { tab: 'bridge' }, activeOn: ['/configuration'] },
+              { id: 'config-bridge', label: 'Bridge', icon: Repeat2, route: '/configuration', params: { tab: 'bridge' }, activeOn: ['/configuration'], hydrahop: true, newIn: '1.5' },
               { id: 'config-transport',     label: 'Regions/Keys',         icon: Globe,     route: '/configuration', params: { tab: 'transport' },     activeOn: ['/configuration'] },
               { id: 'config-api-tokens',    label: 'API Tokens',           icon: KeyRound,  route: '/configuration', params: { tab: 'api-tokens' },    activeOn: ['/configuration'] },
               { id: 'config-web',           label: 'Web Options',          icon: Globe,     route: '/configuration', params: { tab: 'web' },           activeOn: ['/configuration'] },
