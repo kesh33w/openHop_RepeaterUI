@@ -63,8 +63,24 @@ it('lists antenna identity codes with receiving and sending radios', async () =>
   const rows = wrapper.findAll('.antenna-identities tbody tr').map(row => row.findAll('td').map(cell => cell.text()));
   expect(rows[0]![0]).toBe('3f9a');
   expect(rows[0]![1]).toBe('c41e');
-  expect(rows[1]![2]).toBe('Any');
+  expect(rows[1]![2]).toBe('2- and 3-byte');
+  expect(rows[1]![3]).toBe('Any');
+  expect(rows[1]![5]).toBe('In use');
   expect(wrapper.text()).toContain('which antenna heard it and which sent it on');
+  wrapper.unmount();
+});
+
+it('shows one-byte codes and why a retired one stopped being used', async () => {
+  const antenna_identities = {enabled:true, mode:'tx', aliases:[
+    {prefix:'d4', crossing_prefix:'14', rx:null, tx:'g3909', width:1, retired:['d4'], retired_reasons:{d4:'relay Hilltop advertises d4aa0000 1 hop(s) away'}},
+  ]};
+  vi.mocked(ApiService.get).mockResolvedValue({success:true,data:{...status, antenna_identities}});
+  const wrapper = mount(BridgeDiagnostics); await flushPromises();
+  const row = wrapper.get('.antenna-identities tbody tr');
+  expect(row.findAll('td')[2]!.text()).toBe('1-byte');
+  expect(row.find('code.retired').text()).toBe('d4');
+  expect(row.text()).toContain('Retired D4');
+  expect(row.text()).toContain('relay Hilltop advertises d4aa0000 1 hop(s) away');
   wrapper.unmount();
 });
 

@@ -169,13 +169,19 @@ export interface BridgeDiagnostics {
     enabled?: boolean;
     mode?: 'rx_tx' | 'tx';
     aliases?: {
-      /** First two bytes of the alias, as shown in packet paths. */
+      /** The alias as shown in packet paths (first two bytes, or the one-byte code). */
       prefix?: string;
-      /** Prefix used when the repeat crossed the bridge. */
-      crossing_prefix?: string;
+      /** Prefix used when the repeat crossed the bridge; null for a one-byte code without a crossing code. */
+      crossing_prefix?: string | null;
       /** Receiving radio id; null for a per-transmitter alias. */
       rx?: string | null;
       tx?: string;
+      /** Path hash width this alias tags (1 for one-byte codes; absent for 2- and 3-byte aliases). */
+      width?: number;
+      /** One-byte codes of this row that stopped being used because a nearby relay shares them. */
+      retired?: string[];
+      /** Why each retired code was retired, by code. */
+      retired_reasons?: Record<string, string>;
     }[];
   };
 }

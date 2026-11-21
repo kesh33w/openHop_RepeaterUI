@@ -7,6 +7,7 @@ import StatsCards from '@/components/ui/StatsCards.vue';
 import PacketTypesChart from '@/components/charts/PacketTypesChart.vue';
 import AirtimeUtilizationChart from '@/components/charts/AirtimeUtilizationChart.vue';
 import PacketTable from '@/components/tables/PacketTable.vue';
+import HydraHopStatusCard from '@/components/hydrahop/HydraHopStatusCard.vue';
 
 defineOptions({ name: 'DashboardView' });
 
@@ -107,6 +108,9 @@ sudo ./manage.sh upgrade
 
     <!-- Stats Cards -->
     <StatsCards />
+
+    <!-- HydraHop: bridge, antenna codes and relay winners at a glance -->
+    <HydraHopStatusCard />
 
     <!-- Charts Row -->
     <div v-if="isFabricBridge" class="mb-2 flex flex-col gap-4">

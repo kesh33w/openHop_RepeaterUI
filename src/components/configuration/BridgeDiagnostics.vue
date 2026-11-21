@@ -146,16 +146,25 @@ onUnmounted(() => { disposed = true; if (timer) clearInterval(timer); });
         <p class="muted">
           {{ diagnostics.antenna_identities.enabled ? 'Repeated floods' : 'Tagging is off. Routes learned earlier' }}
           carry one of these codes as this node's hop, so a packet path shows which antenna heard it and which sent it on.
-          Only 2- and 3-byte paths are tagged.
+          2- and 3-byte paths always use the 2-byte codes; 1-byte paths are tagged only by radios given a one-byte code.
+          A one-byte code is retired, and its sends go out untagged, when a relay within 2 hops shares its byte.
         </p>
         <table class="antenna-identities">
-          <thead><tr><th scope="col">Code</th><th scope="col">After crossing</th><th scope="col">Heard on</th><th scope="col">Sent from</th></tr></thead>
+          <thead><tr><th scope="col">Code</th><th scope="col">After crossing</th><th scope="col">Paths</th><th scope="col">Heard on</th><th scope="col">Sent from</th><th scope="col">Status</th></tr></thead>
           <tbody>
-            <tr v-for="alias in diagnostics.antenna_identities.aliases" :key="alias.prefix">
-              <td><code>{{ alias.prefix }}</code></td>
-              <td><code>{{ alias.crossing_prefix }}</code></td>
+            <tr v-for="alias in diagnostics.antenna_identities.aliases" :key="alias.prefix" :class="{ 'retired-row': alias.retired?.length }">
+              <td><code :class="{ retired: alias.retired?.includes(alias.prefix) }">{{ alias.prefix }}</code></td>
+              <td><code v-if="alias.crossing_prefix" :class="{ retired: alias.retired?.includes(alias.crossing_prefix) }">{{ alias.crossing_prefix }}</code><span v-else class="muted">—</span></td>
+              <td>{{ alias.width === 1 ? '1-byte' : '2- and 3-byte' }}</td>
               <td>{{ alias.rx ? radioLabel(alias.rx) : 'Any' }}</td>
               <td>{{ radioLabel(alias.tx) }}</td>
+              <td>
+                <template v-if="alias.retired?.length">
+                  <span class="badge failed">Retired {{ alias.retired.join(', ').toUpperCase() }}</span>
+                  <span v-for="code in alias.retired" :key="code" class="retired-reason">{{ alias.retired_reasons?.[code] }}</span>
+                </template>
+                <span v-else class="badge confirmed">In use</span>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -204,6 +213,9 @@ onUnmounted(() => { disposed = true; if (timer) clearInterval(timer); });
 </template>
 
 <style scoped>
+code.retired { text-decoration: line-through; color: var(--color-badge-red-text); }
+.retired-reason { display: block; font-size: .7rem; color: var(--color-text-muted); margin-top: .2rem; }
+
 .bridge-diagnostics { color: var(--color-text-secondary); }
 .diagnostics-header, .panel-heading, .direction-heading, .pagination, .pagination > div { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
 .diagnostics-header { align-items: flex-start; margin-bottom: .75rem; }

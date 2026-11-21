@@ -5,6 +5,7 @@ import type { NavItemConfig } from '@/config/navigation'
 import { NAV_ACTION_HANDLERS_KEY } from '@/config/navActionHandlers'
 import { useSidebarPin } from '@/composables/useSidebarPin'
 import { ChevronDown } from '@lucide/vue'
+import { hasNew, isNew, markSeen } from '@/composables/useFeatureHighlights'
 
 defineOptions({ name: 'NavItem' })
 
@@ -83,6 +84,12 @@ watch(expanded, (val) => { if (isGroup.value) recordFold(props.item.id, val) })
 
 function toggle() { expanded.value = !expanded.value }
 
+// ── HydraHop highlights ───────────────────────────────────────────────────────
+
+// A leaf's "new" dot clears once its page is open; a group shows one while collapsed.
+watch(isActive, (active) => { if (active && !isGroup.value) markSeen(props.item) }, { immediate: true })
+const showNewDot = computed(() => (isGroup.value ? !visibleExpanded.value && hasNew(props.item) : isNew(props.item)))
+
 // ── Navigation ────────────────────────────────────────────────────────────────
 
 function navigate() {
@@ -130,6 +137,10 @@ const iconClass = computed(() =>
     <button :class="buttonClass" @click="handleClick">
       <component :is="item.icon" v-if="item.icon" :class="iconClass" />
       <span class="nav-label flex-1 text-left">{{ item.label }}</span>
+      <span v-if="item.hydrahop" class="hh-badge" title="HydraHop feature">HH</span>
+      <span v-if="showNewDot" class="new-dot" role="img" aria-label="New">
+        <span class="sr-only">New</span>
+      </span>
       <ChevronDown
         v-if="isGroup"
         :class="['w-3 h-3 flex-shrink-0 transition-transform duration-200 text-content-muted', visibleExpanded ? 'rotate-180' : '']"
@@ -155,6 +166,25 @@ const iconClass = computed(() =>
 </template>
 
 <style scoped>
+.hh-badge {
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  padding: 0.18rem 0.3rem;
+  border-radius: 0.3rem;
+  color: var(--color-accent-cyan);
+  border: 1px solid currentColor;
+  opacity: 0.8;
+}
+.new-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 9999px;
+  background: var(--color-accent-cyan);
+  flex-shrink: 0;
+}
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 .nav-expand-enter-active,
 .nav-expand-leave-active {
   transition: opacity 150ms ease, transform 150ms ease;

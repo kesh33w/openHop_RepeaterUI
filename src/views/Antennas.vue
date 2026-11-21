@@ -3,10 +3,14 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import ApiService from '@/utils/api';
 import type { AntennaRadioStats, AntennaStats, RelayNetworkStats, RelayStats } from '@/generated/openapi';
 import { useMultiRadioConfig } from '@/composables/useMultiRadioConfig';
+import { useAntennaCodes } from '@/components/hydrahop/useAntennaCodes';
+import RetiredCodesNotice from '@/components/hydrahop/RetiredCodesNotice.vue';
 
 defineOptions({ name: 'AntennasView' });
 
 const { radioLabel } = useMultiRadioConfig();
+const antennaCodes = useAntennaCodes();
+const retiredCodes = antennaCodes.retired;
 
 const WINDOWS = [
   { hours: 1, label: 'Last hour' },
@@ -30,6 +34,7 @@ async function refresh() {
   loading.value = true;
   try {
     // Relay attribution is a separate, optional view: its failure must not hide the rest.
+    void antennaCodes.refresh();
     const [response, relayResponse] = await Promise.all([
       ApiService.get<AntennaStats>('/antenna_stats', { hours: hours.value }),
       ApiService.get<RelayStats>('/relay_stats', { hours: hours.value }).catch(() => null),
@@ -192,6 +197,7 @@ function cell(row: Row, r: AntennaRadioStats): { text: string; missing: boolean 
     </header>
 
     <p v-if="error" role="alert" class="notice failed-notice">{{ error }}</p>
+    <RetiredCodesNotice :retired="retiredCodes" />
     <p class="muted" role="status">
       <template v-if="loading && !stats">Loading antenna statistics…</template>
       <template v-else-if="updatedAt">Updated {{ updatedAt.toLocaleTimeString() }} · refreshes every minute.</template>
