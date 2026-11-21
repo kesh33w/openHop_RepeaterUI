@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import type { NavItemConfig } from '@/config/navigation'
 import { NAV_ACTION_HANDLERS_KEY } from '@/config/navActionHandlers'
 import { useSidebarPin } from '@/composables/useSidebarPin'
-import { ChevronDown } from '@lucide/vue'
+import { ChevronDown, GitFork } from '@lucide/vue'
 import { hasNew, isNew, markSeen } from '@/composables/useFeatureHighlights'
 
 defineOptions({ name: 'NavItem' })
@@ -137,7 +137,10 @@ const iconClass = computed(() =>
     <button :class="buttonClass" @click="handleClick">
       <component :is="item.icon" v-if="item.icon" :class="iconClass" />
       <span class="nav-label flex-1 text-left">{{ item.label }}</span>
-      <span v-if="item.hydrahop" class="hh-badge" title="HydraHop feature">HH</span>
+      <span v-if="item.hydrahop" class="fork-badge" title="HydraHop feature">
+        <GitFork class="w-3 h-3" aria-hidden="true" />
+        <span class="sr-only">HydraHop feature</span>
+      </span>
       <span v-if="showNewDot" class="new-dot" role="img" aria-label="New">
         <span class="sr-only">New</span>
       </span>
@@ -166,16 +169,11 @@ const iconClass = computed(() =>
 </template>
 
 <style scoped>
-.hh-badge {
-  font-size: 0.58rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  line-height: 1;
-  padding: 0.18rem 0.3rem;
-  border-radius: 0.3rem;
+.fork-badge {
+  display: inline-flex;
   color: var(--color-accent-cyan);
-  border: 1px solid currentColor;
-  opacity: 0.8;
+  opacity: 0.85;
+  flex-shrink: 0;
 }
 .new-dot {
   width: 0.45rem;

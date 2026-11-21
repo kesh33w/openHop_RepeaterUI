@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import ApiService from '@/utils/api'
 import type { BridgeStats, InternetLinkState, RelayNetworkStats, RelayStats } from '@/generated/openapi'
+import { GitFork } from '@lucide/vue'
 import { useMultiRadioConfig } from '@/composables/useMultiRadioConfig'
 import { useAntennaCodes } from './useAntennaCodes'
 import RetiredCodesNotice from './RetiredCodesNotice.vue'
@@ -81,7 +82,7 @@ const linkSummary = computed(() => {
 <template>
   <section v-if="configured" class="hh-card mb-4" aria-labelledby="hh-status-title" data-testid="hydrahop-status">
     <header class="hh-header">
-      <h3 id="hh-status-title">HydraHop <span class="hh-badge">HH</span></h3>
+      <h3 id="hh-status-title"><GitFork class="fork-icon" aria-hidden="true" />HydraHop</h3>
       <span class="muted">Last 24 hours · refreshes every minute</span>
     </header>
 
@@ -133,7 +134,7 @@ const linkSummary = computed(() => {
 .hh-card { border: 1px solid var(--color-border-subtle); border-radius: 0.9rem; padding: 1rem 1.1rem; background: var(--color-surface); }
 .hh-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 0.4rem; margin-bottom: 0.75rem; }
 .hh-header h3 { color: var(--color-heading); font-size: 1rem; font-weight: 650; display: flex; align-items: center; gap: 0.4rem; }
-.hh-badge { font-size: 0.58rem; font-weight: 700; letter-spacing: 0.04em; padding: 0.18rem 0.3rem; border-radius: 0.3rem; color: var(--color-accent-cyan); border: 1px solid currentColor; }
+.fork-icon { width: 1rem; height: 1rem; color: var(--color-accent-cyan); }
 .muted { color: var(--color-text-muted); font-size: 0.78rem; }
 .muted a { color: var(--color-primary); }
 .hh-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 0.75rem; }

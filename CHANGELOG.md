@@ -4,13 +4,19 @@ Fork-specific changes to OpenHop Repeater UI. The format follows [Keep a Changel
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-11-21
+
+### Changed
+
+- **HydraHop menu marker is now a small fork icon** (tooltip "HydraHop feature") instead of the letters "HH", which are a hate symbol. The Dashboard card heading uses the same icon.
+
 ## [1.5.0] - 2026-11-21
 
 ### Added
 
 - **HydraHop status on the Dashboard.** One card shows, per network, bridged and repeated packets (24 h), each antenna's identity codes, which antenna's copy neighbours relay more often when sent first, and Internet Link peers. Each part links to its page.
 - **Retired one-byte codes are shown.** The Dashboard card and Analytics → Antennas warn when a one-byte antenna code was retired, naming the radio, the code and the relay that caused it. Crossing diagnostics lists one-byte codes with their path width and status.
-- **HydraHop features are marked in the menu.** Bridge, Antennas, Bridge settings and Radio Names carry a small HH badge, and pages changed in this release show a dot until opened.
+- **HydraHop features are marked in the menu.** Bridge, Antennas, Bridge settings and Radio Names carry a small HydraHop marker, and pages changed in this release show a dot until opened.
 
 ## [1.4.0] - 2026-11-20
 

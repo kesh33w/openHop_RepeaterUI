@@ -34,7 +34,7 @@ it('shows a new dot until the page is opened, then remembers it', async () => {
   const router = makeRouter('/')
   await router.isReady()
   const wrapper = mount(NavItem, { props: { item: antennas }, global: { plugins: [router] } })
-  expect(wrapper.find('.hh-badge').text()).toBe('HH')
+  expect(wrapper.find('.fork-badge').attributes('title')).toBe('HydraHop feature')
   expect(wrapper.find('.new-dot').exists()).toBe(true)
   await router.push('/antennas'); await flushPromises()
   expect(wrapper.find('.new-dot').exists()).toBe(false)
