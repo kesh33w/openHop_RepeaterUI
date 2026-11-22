@@ -4,6 +4,8 @@ Fork-specific changes to OpenHop Repeater UI. The format follows [Keep a Changel
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-11-22
+
 ### Added
 
 - **Analytics → Antennas splits corrupted packets.** Two new rows estimate the share of CRC errors that follow our own sends (with CRC errors per send) and the rate from other causes; a finding explains when our sends account for 30% or more.
