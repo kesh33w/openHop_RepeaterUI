@@ -427,6 +427,8 @@ export interface AntennaStats {
   hours: number;
   /** Two receptions of the same packet from the same relay this close in time count as one RF frame for signal_gaps. */
   match_window_seconds: number;
+  /** Bucket length used to estimate crc_after_sends. */
+  crc_bucket_seconds: number;
   /** Where radio roles and TX membership came from; null when the node has no topology. */
   topology_source?: 'running' | 'config' | null;
   radios: AntennaRadioStats[];
@@ -462,6 +464,18 @@ export interface AntennaRadioStats {
   };
   crc_errors: number;
   crc_errors_per_hour: number;
+  /** Estimate of the CRC errors that follow this node's own sends on the radio's network: CRC errors per bucket fitted against sends per bucket. Mostly neighbours repeating what we just sent and colliding. Null with under two hours of samples, no CRC errors, or no variation in sends. */
+  crc_after_sends: {
+    /** Extra CRC errors per send on this network. */
+    per_send: number;
+    /** CRC errors in the window attributed to our sends. */
+    estimated: number;
+    /** estimated / crc_errors over the sampled buckets, 0 to 1. */
+    share: number;
+    /** CRC errors per hour not explained by our sends. */
+    other_per_hour: number;
+    sampled_hours: number;
+  } | null;
   /** Distinct repeaters this antenna heard relaying packets to us. */
   upstream_repeaters: number;
   /** Upstream repeaters no other antenna on this network heard. */

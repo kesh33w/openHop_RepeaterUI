@@ -139,6 +139,10 @@ const networks = computed(() => (stats.value?.networks ?? []).filter(n => n.radi
     else if (!r.has_data) findings.push(`No data was recorded for ${radioLabel(r.radio_id)} in this window.`);
     else if (r.unique_packets > 0) findings.push(`${radioLabel(r.radio_id)} caught ${fmt(r.unique_packets)} packets (${pct(r.unique_packets, n.packets)}%) no other antenna here heard.`);
   }
+  for (const r of radios) {
+    const c = r.crc_after_sends;
+    if (c && c.share >= 0.3) findings.push(`About ${Math.round(c.share * 100)}% of ${radioLabel(r.radio_id)}'s corrupted packets follow our own sends: most likely neighbours repeating what we just sent at the same moment. Those are copies of a packet already sent, so nothing is lost; ~${c.other_per_hour} / h remain.`);
+  }
   for (const g of n.signal_gaps) {
     // A shadow radio has no stored receptions; its finding above says so.
     if (radioById.value.get(g.a)?.recorded === false || radioById.value.get(g.b)?.recorded === false) continue;
@@ -160,6 +164,8 @@ const rows: Row[] = [
   { label: 'Average SNR', hint: 'Signal-to-noise ratio of received packets', kind: 'rx', value: r => db(r.snr_avg, 'dB') },
   { label: 'Noise floor', hint: 'Average, with the quiet (10%) to busy (90%) range', value: r => r.noise.avg === null ? '—' : `${db(r.noise.avg)} (${r.noise.p10} to ${r.noise.p90})` },
   { label: 'Corrupted packets', hint: 'CRC errors per hour', value: r => `${r.crc_errors_per_hour} / h` },
+  { label: 'Corrupted after our sends', hint: 'Estimated share of CRC errors that follow our own sends: mostly neighbours repeating what we just sent and colliding, so nothing is lost', value: r => r.crc_after_sends ? `~${Math.round(r.crc_after_sends.share * 100)}% (${r.crc_after_sends.per_send} per send)` : '—' },
+  { label: 'Corrupted, other causes', hint: 'Estimated CRC errors per hour not explained by our sends: weak signals, other traffic colliding, interference', value: r => r.crc_after_sends ? `~${r.crc_after_sends.other_per_hour} / h` : '—' },
   { label: 'Repeaters heard', hint: 'Distinct repeaters heard relaying to us; in brackets, how many only this antenna heard', kind: 'rx', value: r => `${r.upstream_repeaters} (${r.unique_upstream_repeaters} only here)` },
   { label: 'Sends', hint: 'Transmissions on this antenna', kind: 'tx', value: r => fmt(r.sends) },
   { label: 'Waited for a busy channel', hint: 'Sends that held off because the channel was busy', kind: 'tx', value: r => r.sends ? `${fmt(r.busy_holds)} (${pct(r.busy_holds, r.sends)}%)` : '—', warn: r => r.sends > 0 && r.busy_holds / r.sends > 0.4 },
