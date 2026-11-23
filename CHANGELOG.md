@@ -146,7 +146,20 @@ This is the first tagged fork release. It covers everything since the fork's ups
 - Frontend dependencies updated, with a minimum Vite version that includes upstream security fixes.
 - Stored channel keys are never displayed or sent back; leave the key blank to keep it.
 
-[Unreleased]: https://github.com/kesh33w/openHop_RepeaterUI/compare/kesh-2026.11.18.2...kesh/bridge
+[Unreleased]: https://github.com/kesh33w/openHop_RepeaterUI/compare/hydrahop-v1.6.0...kesh/bridge
+[1.6.0]: https://github.com/kesh33w/openHop_RepeaterUI/compare/hydrahop-v1.5.1...hydrahop-v1.6.0
+[1.5.1]: https://github.com/kesh33w/openHop_RepeaterUI/compare/hydrahop-v1.5.0...hydrahop-v1.5.1
+[1.5.0]: https://github.com/kesh33w/openHop_RepeaterUI/compare/hydrahop-v1.4.0...hydrahop-v1.5.0
+[1.4.0]: https://github.com/kesh33w/openHop_RepeaterUI/compare/hydrahop-v1.3.1...hydrahop-v1.4.0
+[1.3.1]: https://github.com/kesh33w/openHop_RepeaterUI/compare/hydrahop-v1.3.0...hydrahop-v1.3.1
+[1.3.0]: https://github.com/kesh33w/openHop_RepeaterUI/compare/hydrahop-v1.2.0...hydrahop-v1.3.0
+[1.2.0]: https://github.com/kesh33w/openHop_RepeaterUI/compare/hydrahop-v1.1.0...hydrahop-v1.2.0
+[1.1.0]: https://github.com/kesh33w/openHop_RepeaterUI/compare/hydrahop-v1.0.3...hydrahop-v1.1.0
+[1.0.3]: https://github.com/kesh33w/openHop_RepeaterUI/compare/hydrahop-v1.0.2...hydrahop-v1.0.3
+[1.0.2]: https://github.com/kesh33w/openHop_RepeaterUI/compare/hydrahop-v1.0.1...hydrahop-v1.0.2
+[1.0.1]: https://github.com/kesh33w/openHop_RepeaterUI/compare/hydrahop-v1.0.0...hydrahop-v1.0.1
+[1.0.0]: https://github.com/kesh33w/openHop_RepeaterUI/compare/kesh-2026.11.19...hydrahop-v1.0.0
+[kesh-2026.11.19]: https://github.com/kesh33w/openHop_RepeaterUI/compare/kesh-2026.11.18.2...kesh-2026.11.19
 [kesh-2026.11.18.2]: https://github.com/kesh33w/openHop_RepeaterUI/compare/kesh-2026.11.18.1...kesh-2026.11.18.2
 [kesh-2026.11.18.1]: https://github.com/kesh33w/openHop_RepeaterUI/compare/kesh-2026.11.18...kesh-2026.11.18.1
 [kesh-2026.11.18]: https://github.com/kesh33w/openHop_RepeaterUI/compare/41cf17e...kesh-2026.11.18
