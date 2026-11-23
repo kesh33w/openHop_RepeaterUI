@@ -22,7 +22,10 @@ A standalone frontend cannot provide the fork's APIs. Always use it with the rep
 | **CAD Calibration** | Pick the physical radio to calibrate, and the per-radio **CAD before transmit** switch, confirmed by firmware |
 | **Companions** | Explicit home radio and receive network for each companion |
 | **Broker settings** | Receive radio and region for each MQTT observer feed |
-| **Dashboard** | Last RF reception per radio panel, and configured radio names throughout |
+| **Dashboard** | **HydraHop card** (per-network bridged and repeated packets, antenna codes, retired 1-byte codes, Internet Link peers), last RF reception per radio panel, and configured radio names throughout |
+| **Analytics → Bridge** | Packets bridged each way, local repeats, why heard packets were not sent, and sends per antenna pair with each pair's code, over 1 h to 7 days |
+| **Analytics → Antennas** | Per network: which antennas heard each packet, signal gap on the same frame, noise floor, corrupted packets (split into those after our own sends and other causes), repeaters heard, sends, channel-busy waits, and which antenna's copy neighbours relayed |
+| **Menu** | A small fork icon marks HydraHop pages and features |
 
 Each control is documented with its backend feature in the repeater's [feature reference](https://github.com/kesh33w/openhop_repeater/blob/kesh/bridge/docs/fork/README.md).
 
