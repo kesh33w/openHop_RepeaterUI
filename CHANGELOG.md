@@ -4,6 +4,12 @@ Fork-specific changes to OpenHop Repeater UI. The format follows [Keep a Changel
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-11-24
+
+### Added
+
+- **Upstream RepeaterUI dev merged (7 Nov 2026).** Brings RF front-end controls (AGC reset, FEM gain, RX boost) for KISS and openHop USB/TCP modems on Radio Hardware and in the web terminal, and network and per-broker MQTT usage on System Stats. The API client is regenerated from the merged repeater spec.
+
 ## [1.6.0] - 2026-11-22
 
 ### Added
@@ -146,7 +152,8 @@ This is the first tagged fork release. It covers everything since the fork's ups
 - Frontend dependencies updated, with a minimum Vite version that includes upstream security fixes.
 - Stored channel keys are never displayed or sent back; leave the key blank to keep it.
 
-[Unreleased]: https://github.com/kesh33w/openHop_RepeaterUI/compare/hydrahop-v1.6.0...kesh/bridge
+[Unreleased]: https://github.com/kesh33w/openHop_RepeaterUI/compare/hydrahop-v1.7.0...kesh/bridge
+[1.7.0]: https://github.com/kesh33w/openHop_RepeaterUI/compare/hydrahop-v1.6.1...hydrahop-v1.7.0
 [1.6.0]: https://github.com/kesh33w/openHop_RepeaterUI/compare/hydrahop-v1.5.1...hydrahop-v1.6.0
 [1.5.1]: https://github.com/kesh33w/openHop_RepeaterUI/compare/hydrahop-v1.5.0...hydrahop-v1.5.1
 [1.5.0]: https://github.com/kesh33w/openHop_RepeaterUI/compare/hydrahop-v1.4.0...hydrahop-v1.5.0
