@@ -4,6 +4,10 @@ Fork-specific changes to OpenHop Repeater UI. The format follows [Keep a Changel
 
 ## [Unreleased]
 
+### Added
+
+- **RF front-end controls under every radio.** Radio Hardware shows AGC reset, FEM gain and RX boost for each configured radio, not only the default, and the web terminal's `get`/`set` for those keys take an optional radio id. Upstream PR openhop-dev/openHop_RepeaterUI#132 by agessaman; needs the repeater's per-radio `/api/radio_frontend`.
+
 ## [1.7.0] - 2026-11-24
 
 ### Added
