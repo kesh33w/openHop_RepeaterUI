@@ -4,6 +4,8 @@ Fork-specific changes to OpenHop Repeater UI. The format follows [Keep a Changel
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-11-24
+
 ### Added
 
 - **RF front-end controls under every radio.** Radio Hardware shows AGC reset, FEM gain and RX boost for each configured radio, not only the default, and the web terminal's `get`/`set` for those keys take an optional radio id. Upstream PR openhop-dev/openHop_RepeaterUI#132 by agessaman; needs the repeater's per-radio `/api/radio_frontend`.
@@ -156,7 +158,8 @@ This is the first tagged fork release. It covers everything since the fork's ups
 - Frontend dependencies updated, with a minimum Vite version that includes upstream security fixes.
 - Stored channel keys are never displayed or sent back; leave the key blank to keep it.
 
-[Unreleased]: https://github.com/kesh33w/openHop_RepeaterUI/compare/hydrahop-v1.7.0...kesh/bridge
+[Unreleased]: https://github.com/kesh33w/openHop_RepeaterUI/compare/hydrahop-v1.8.0...kesh/bridge
+[1.8.0]: https://github.com/kesh33w/openHop_RepeaterUI/compare/hydrahop-v1.7.0...hydrahop-v1.8.0
 [1.7.0]: https://github.com/kesh33w/openHop_RepeaterUI/compare/hydrahop-v1.6.1...hydrahop-v1.7.0
 [1.6.0]: https://github.com/kesh33w/openHop_RepeaterUI/compare/hydrahop-v1.5.1...hydrahop-v1.6.0
 [1.5.1]: https://github.com/kesh33w/openHop_RepeaterUI/compare/hydrahop-v1.5.0...hydrahop-v1.5.1
