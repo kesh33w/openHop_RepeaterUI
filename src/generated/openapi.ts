@@ -425,8 +425,15 @@ export interface RadioFrontendSettings {
   rx_boosted_gain?: boolean;
 }
 
+export type RadioFrontendRequest = RadioFrontendSettings & {
+  /** Id of a radios[] entry; omit for the default radio */
+  radio_id?: string;
+};
+
 export interface RadioFrontendStatus {
-  /** Configured default radio type, stripped and lower-cased; null when absent */
+  /** The radios[] entry these controls belong to; null on a single-radio node. Without a radio_id in the request, the default radio the running fabric uses. */
+  radio_id: string | null;
+  /** Configured radio type, stripped and lower-cased; null when absent */
   radio_type?: string | null;
   /** Probed control limits; absent keys have no known limits */
   limits?: {
@@ -437,8 +444,10 @@ export interface RadioFrontendStatus {
       step: number;
     };
   };
-  /** Default radio is a KISS or OpenHop modem with front-end controls */
+  /** The radio is a KISS or OpenHop modem with front-end controls */
   available: boolean;
+  /** Optional explanation when available is false and the cause is known. For an explicitly selected radio_id that is configured but absent from the running fabric, advises restarting to apply radios[] changes. */
+  unavailable_reason?: string;
   supports: {
     agc_reset_interval_seconds: boolean;
     fem_rx_gain: boolean;
@@ -2680,39 +2689,53 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
   };
   radioFrontend = {
     /**
-     * @description AGC reset interval, external FEM gain and radio chip boosted RX gain of the default radio, read from the modem. KISS firmware v2 and OpenHop modem firmware that implements the RF frame commands report support; the controls a board supports come from the board itself.
+     * @description AGC reset interval, external FEM gain and radio chip boosted RX gain of one radio, read from the modem: the radios[] entry named by radio_id, or the default radio without it. KISS firmware v2 and OpenHop modem firmware that implements the RF frame commands report support; the controls a board supports come from the board itself. An explicitly selected radio that is configured but not running reports available: false with unavailable_reason.
      *
      * @tags System
      * @name RadioFrontendList
-     * @summary Get default-radio RF front-end controls
+     * @summary Get a radio's RF front-end controls
      * @request GET:/radio_frontend
      * @secure
      */
-    radioFrontendList: (params: RequestParams = {}) =>
+    radioFrontendList: (
+      query?: {
+        /** Id of a radios[] entry; omit for the default radio */
+        radio_id?: string;
+      },
+      params: RequestParams = {},
+    ) =>
       this.request<
         {
           success: boolean;
           data: RadioFrontendStatus;
         },
-        any
+        ErrorResponse
       >({
         path: `/radio_frontend`,
         method: 'GET',
+        query: query,
         secure: true,
         format: 'json',
         ...params,
       }),
 
     /**
-     * @description Applies the given settings to the default radio's modem and persists only the values it confirms. Takes effect immediately; no restart is needed. Omitted fields are left unchanged.
+     * @description Applies the given settings to one radio's modem (the radios[] entry named by radio_id, or the default radio without it) and persists only the values it confirms, into that radio's own config section. Takes effect immediately; no restart is needed. Omitted fields are left unchanged. An explicitly selected radio that is configured but not running returns 409 without applying or persisting settings; restart to apply radios[] changes.
      *
      * @tags System
      * @name RadioFrontendCreate
-     * @summary Set default-radio RF front-end controls
+     * @summary Set a radio's RF front-end controls
      * @request POST:/radio_frontend
      * @secure
      */
-    radioFrontendCreate: (data: RadioFrontendSettings, params: RequestParams = {}) =>
+    radioFrontendCreate: (
+      data: RadioFrontendRequest,
+      query?: {
+        /** Id of a radios[] entry; a radio_id in the body takes precedence */
+        radio_id?: string;
+      },
+      params: RequestParams = {},
+    ) =>
       this.request<
         {
           success: boolean;
@@ -2720,10 +2743,11 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
           restart_required?: boolean;
           data?: RadioFrontendApplyResult;
         },
-        any
+        ErrorResponse
       >({
         path: `/radio_frontend`,
         method: 'POST',
+        query: query,
         body: data,
         secure: true,
         type: ContentType.Json,
