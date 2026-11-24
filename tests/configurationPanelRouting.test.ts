@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { mount, flushPromises } from '@vue/test-utils';
 import { createRouter, createMemoryHistory } from 'vue-router';
 import { createPinia, setActivePinia } from 'pinia';
-import { ApiService } from '@/utils/api';
+import DefaultApi, { ApiService } from '@/utils/api';
 
 // ── Minimal mocks ──────────────────────────────────────────────────────────────
 
@@ -225,4 +225,21 @@ describe('Configuration panel routing (sidebar drives ?tab= query param)', () =>
       expect(wrapper.html()).toBeTruthy();
     }
   });
+});
+
+
+it('protects bridge drafts on full-page navigation and allows explicitly discarded navigation', async () => {
+  vi.mocked(DefaultApi.get).mockResolvedValue({success:true,data:{settings:{enabled:false,channels:{},mappings:[]},radio_ids:['a','b']}});
+  const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+  const { wrapper, router } = await makeWrapper('/configuration', {tab:'bridge'});
+  try {
+    await wrapper.get('[data-testid=origin-home]').setValue('a');
+    await router.push('/sensors'); await flushPromises();
+    expect(confirm).toHaveBeenCalledWith('Discard unsaved bridge changes?');
+    expect(router.currentRoute.value.path).toBe('/configuration');
+    expect(wrapper.get<HTMLSelectElement>('[data-testid=origin-home]').element.value).toBe('a');
+    confirm.mockReturnValue(true);
+    await router.push('/sensors'); await flushPromises();
+    expect(router.currentRoute.value.path).toBe('/sensors');
+  } finally { confirm.mockRestore(); wrapper.unmount(); }
 });

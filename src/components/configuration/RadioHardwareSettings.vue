@@ -32,7 +32,7 @@ const setupStore = useSetupStore();
 
 const {
   isMultiRadio,
-  radioOptions,
+  radioLabel,
   effectiveSelectedId,
   activeHardware,
   defaultRadioId,
@@ -186,7 +186,7 @@ const workingRadioOptions = computed(() => {
     const id = String(r.id || '');
     return {
       id,
-      label: id,
+      label: radioLabel(id),
       radio_type: String(r.radio_type ?? 'unknown'),
       isDefault: id === def,
     };
@@ -1612,7 +1612,7 @@ const workingRadioCards = computed(() =>
   }),
 );
 
-const activeRadioLabel = computed(() => workingSelectedId.value || '—');
+const activeRadioLabel = computed(() => radioLabel(workingSelectedId.value) || '—');
 
 const showSerialFields = computed(
   () => selectedRadioType.value === 'kiss' || selectedRadioType.value === 'modem_usb',
@@ -1827,7 +1827,7 @@ watch(
             @click="selectWorkingRadio(card.id)"
           >
             <div class="flex items-center justify-between gap-2">
-              <span class="font-mono text-sm font-semibold text-content-primary">{{ card.id }}</span>
+              <span class="font-mono text-sm font-semibold text-content-primary">{{ radioLabel(card.id) }}</span>
               <span
                 class="text-[10px] font-semibold uppercase tracking-wide rounded-full px-2 py-0.5"
                 :class="card.hwReady
@@ -1861,7 +1861,7 @@ watch(
                 {{ opt.label }}
               </option>
             </select>
-            <span v-else class="block text-content-primary font-mono text-sm mt-1">{{ defaultRadioId }}</span>
+            <span v-else class="block text-content-primary font-mono text-sm mt-1">{{ radioLabel(defaultRadioId) }}</span>
           </label>
           <label class="text-content-secondary dark:text-content-muted text-xs sm:text-sm">
             Fabric TX mode

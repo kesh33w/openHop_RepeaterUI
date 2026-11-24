@@ -6,9 +6,9 @@ Use it with the matching [Repeater fork](https://github.com/kesh33w/openhop_repe
 
 ## Bridge controls
 
-The Bridge page configures directional channel mappings, explicit-path direct-message routes, the origin home radio and queue limits. Companions have their own home-radio assignments on the Companions page.
+The Bridge page configures channel links, explicit-path direct-message routes, the origin home radio and queue limits. Companions have their own home-radio assignments on the Companions page.
 
-- Add a reverse mapping or route when replies need to cross back.
+- One Add channel link form selects or creates both channel endpoints and automatically includes both message directions. Matching channels are labeled Same channel; different channel identities are labeled Cross-channel. Existing one-way or disabled directions are retained, not silently enabled. Direct-message transit routes still require an explicit reverse route.
 - Stored channel keys never come back from the settings API. Leave a saved channel's replacement key blank to keep it.
 - Saving bridge settings writes the configuration. It does not restart the service or transmit a packet. Restart OpenHop separately to apply those settings.
 - Internet Link traffic limits apply immediately when the listener is running. They do not require a restart.
@@ -57,7 +57,7 @@ Deploy the complete generated asset directory when updating a frontend, includin
 
 | Path | Purpose |
 | --- | --- |
-| [src/components/configuration/BridgeSettings.vue](src/components/configuration/BridgeSettings.vue) | Channel mappings, keys, home radio and direct routes |
+| [src/components/configuration/BridgeSettings.vue](src/components/configuration/BridgeSettings.vue) | Channel links, keys, home radio and direct routes |
 | [src/components/configuration/InternetLinkSettings.vue](src/components/configuration/InternetLinkSettings.vue) | Link status and live traffic limits |
 | [src/utils/api.ts](src/utils/api.ts) | API client |
 | [src/generated/openapi.ts](src/generated/openapi.ts) | Generated backend types |
@@ -92,3 +92,21 @@ Independent observer identities and approved broker feeds remain host-configured
 The bridge editor never sends the host-managed reception observer allowlist back in a settings save. If a save succeeds but refreshing status fails, the editor reports the saved result and marks the running comparison unknown until refreshed. A definite pause failure reports that the request changed no settings. An unknown outcome or lost response warns that work may still complete and requires a status refresh before another pause action.
 
 Peer routing defaults to `legacy` for existing configurations. The saved-settings selector can explicitly select `distinct`, which separates native same-radio hops from the unsigned public crossing route identifier shown under running routes. Discovery, repeater administration and TRACE require distinct mode. Changing mode requires a restart and clearing/relearning cross-network contact paths; the UI preserves channel mappings and direction selections. Legacy mode retains the existing policy that a native bridge next hop on a configured ingress selects crossing, so it does not promise unchanged same-radio direct routing.
+
+## Bridge page layout
+
+The bridge page is organized into Overview, Channels, Protocol transit, Safeguards, Live activity, and Internet Link. Running status stays separate from the configuration draft. The save controls remain available while scrolling settings, and switching sections preserves drafts. Invalid fields open their section before receiving focus. Discarding edits requires confirmation; navigation and browser-close guards protect unfinished changes.
+
+Live activity provides direction/outcome filters, ten crossings per page, and expandable observer evidence. Automatic diagnostics refresh pauses while inspecting a crossing or later page. Diagnostics and Internet Link only poll while their sections are active. Internet Link retains its own immediate-apply save operation.
+
+A settings save with a lost or unknown response blocks further saves until the user explicitly reloads and reviews saved settings. Keys remain intact after local validation failure and are cleared after an attempted server write. Independent pause state and host-managed observer configuration are excluded from the ordinary settings payload.
+
+### Channel links
+
+Reciprocal channel mappings appear as one link with shared endpoint controls. Editing either endpoint updates both directions. Direction switches preserve intentional asymmetry; removing a link removes its mappings but retains channel keys. Stored keys live in a separate disclosure and do not imply active bridging. Referenced keys cannot be removed until their links are removed or changed.
+
+The editor serializes links back to the existing directional API without a backend migration. A no-op round trip preserves mapping order, omitted enabled flags, and absent reverse routes. New links are always two-way. Duplicate or ambiguous source-channel destinations are rejected before save. Known duplicate keys across different channel identities are also rejected, including equivalent zero-padded keys. Stored redacted keys cannot be compared in the browser. These UI changes do not modify live routing or restart the service.
+
+### Radio names
+
+Use Configuration → Radio Names to choose how each radio appears in dropdown menus. Names are display-only metadata stored in `web.radio_labels`; saving updates the UI immediately without restarting the repeater. Internal radio IDs, frequencies, and routing remain unchanged. Blank names use the existing configured label or frequency as a fallback.

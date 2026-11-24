@@ -2,12 +2,14 @@
 import { ref, onUnmounted, onMounted, computed, watch, shallowRef } from 'vue';
 import { ApiService, API_SERVER_URL } from '@/utils/api';
 import { useSystemStore } from '@/stores/system';
+import { useMultiRadioConfig } from '@/composables/useMultiRadioConfig';
 import { getToken } from '@/utils/auth';
 import RestartModal from '@/components/modals/RestartModal.vue';
 
 defineOptions({ name: 'CADCalibrationView' });
 
 const systemStore = useSystemStore();
+const { radioLabel: displayRadioName } = useMultiRadioConfig();
 
 interface CalibrationResult {
   det_peak: number;
@@ -103,7 +105,7 @@ const selectionLocked = computed(() => radiosLoading.value || starting.value || 
   saving.value || isRunning.value || manualCheckRunning.value || manualCheckBusy.value);
 const operationDisabled = computed(() => selectionLocked.value || !selectedRadio.value?.supports_cad);
 function radioLabel(radio: CadRadio) {
-  return `${radio.label || radio.radio_id} · ${(radio.frequency / 1000000).toFixed(3)} MHz · SF${radio.spreading_factor}`;
+  return `${displayRadioName(radio.radio_id) === radio.radio_id ? (radio.label || radio.radio_id) : displayRadioName(radio.radio_id)} · ${(radio.frequency / 1000000).toFixed(3)} MHz · SF${radio.spreading_factor}`;
 }
 
 const isRunning = ref(false);

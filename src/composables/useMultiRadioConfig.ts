@@ -5,6 +5,7 @@
 import { computed, ref, type Ref } from 'vue'
 import { useSystemStore } from '@/stores/system'
 import { normalizeModemTransportConfig } from '@/utils/modemTransport'
+import { defaultRadioName, normalizeRadioNames } from '@/utils/radioDisplayNames'
 
 export type FabricTxMode = 'default' | 'sticky' | 'bridge'
 
@@ -159,9 +160,13 @@ export function useMultiRadioConfig() {
     }
   })
 
+  const radioNames = computed(() => normalizeRadioNames(asRecord(rootConfig.value.web).radio_labels))
+
   function radioLabel(id: string): string {
-    const label = radios.value.find((radio) => radio.id === id)?.label
-    return typeof label === 'string' && label.trim() ? label.trim() : id
+    const named = radioNames.value[id]
+    if (named) return named
+    const radio = radios.value.find((entry) => entry.id === id)
+    return radio ? defaultRadioName(radio) : id
   }
 
   const radioOptions = computed(() =>
@@ -189,6 +194,7 @@ export function useMultiRadioConfig() {
 
   return {
     rootConfig,
+    radioNames,
     radios,
     fabric,
     radioStack,
