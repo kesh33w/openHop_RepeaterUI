@@ -17,5 +17,5 @@ The branch model, commit style and release process for all four fork repositorie
 
   CI runs the first four.
 - **ESLint is not gated yet.** Upstream code has 180 existing ESLint errors (mostly `any`). Keep files you change clean, and don't add new errors.
-- **Shipping a change:** after the UI PR merges, rebuild the bundle into the repeater and commit it there as `Bundle <what> from UI <commit>`. Keep previously built hashed assets (`git ls-files -d repeater/web/html | xargs -r git checkout --`).
+- **Shipping a change:** after the UI PR merges, rebuild the bundle into the repeater and commit it there as `Bundle <what> from UI <commit>`. Restore previously built hashed assets (`git ls-files -d repeater/web/html | xargs -r git checkout --`), then prune the ones no longer needed with the repeater's `python3 scripts/prune_web_assets.py --apply` (see the repeater's CONTRIBUTING.md).
 - **Secrets:** never put channel keys, backend credentials or tokens in `.env` files or test fixtures.
