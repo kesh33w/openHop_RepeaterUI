@@ -240,6 +240,103 @@ export interface InternetLinkState {
   }[];
 }
 
+export interface NetworkUsageInterface {
+  /** Interface name in the current network namespace. */
+  source: string;
+  name: string;
+  /**
+   * @format int64
+   * @min 0
+   */
+  upload_bytes: number;
+  /**
+   * @format int64
+   * @min 0
+   */
+  download_bytes: number;
+  /**
+   * Always zero for interface counters.
+   * @format int64
+   * @min 0
+   */
+  messages: number;
+}
+
+export interface NetworkUsageBroker {
+  /** Opaque hash of nonsecret endpoint identity and broker name; independent of broker list ordering and credentials. Renaming a broker starts a new source. */
+  source: string;
+  /** Configured broker label (Glass telemetry has its own label). */
+  name: string;
+  /**
+   * Locally accepted payload bytes only; not transport bytes or broker acknowledgement.
+   * @format int64
+   * @min 0
+   */
+  upload_bytes: number;
+  /**
+   * @format int64
+   * @min 0
+   */
+  messages: number;
+}
+
+/** Locally accepted outgoing message counts and UTF-8 payload bytes for this broker connection. Reset on connection recreation or service restart, not on a normal reconnect. Excludes topics, protocol overhead, retries and Glass's separate client; accepted messages are not guaranteed delivered. */
+export interface MqttSentCounters {
+  /** @min 0 */
+  messages: number;
+  /** @min 0 */
+  payload_bytes: number;
+}
+
+export interface NetworkUsage {
+  /**
+   * Effective rolling duration in hours.
+   * @min 1
+   * @max 168
+   */
+  hours: number;
+  /**
+   * Compatibility duration equal to hours / 24; fractional for subday windows.
+   * @min 0.041666666666666664
+   * @max 7
+   */
+  days: number;
+  /** Inclusive effective UNIX seconds, minute aligned. */
+  start: number;
+  /** Exclusive effective UNIX seconds, minute aligned; excludes current minute. */
+  end: number;
+  bucket_seconds: 60;
+  /** Earliest retained fully observed minute, not a guarantee of continuous coverage after that point. Null until one full minute is recorded. */
+  available_since: number | null;
+  /** True if any requested minute lacks certified collection coverage. Partial totals are observed lower bounds, not zero-filled estimates. */
+  partial: boolean;
+  scope: string;
+  /** Best-effort current Linux main-table default-route recommendation, equal to a returned interfaces source whose NIC is currently up and nonloopback. Null for unavailable discovery, ambiguous routes, differing IPv4/IPv6 defaults or no matching source. Not a policy-routing or carrier-billing determination. Use only for initial selection; never override a manual selection. */
+  default_interface: string | null;
+  /** Observed sources separately; do not sum overlapping interfaces automatically. */
+  interfaces: NetworkUsageInterface[];
+  mqtt: {
+    brokers: NetworkUsageBroker[];
+    /**
+     * @format int64
+     * @min 0
+     */
+    upload_bytes: number;
+    /**
+     * @format int64
+     * @min 0
+     */
+    messages: number;
+  };
+  collection: {
+    running: boolean;
+    /** Last successful interface sample UNIX seconds; null before first success. */
+    last_sample: number | null;
+    /** Sanitized collection/persistence error, never connection details or credentials. */
+    error: string | null;
+  };
+}
+
 /** One snapshot's local, bounded measurement metadata; identity is configured sensor name plus source-path id. */
 export interface SensorMetricDescriptor {
   /** RFC6901 JSON Pointer relative to the plugin's source field mapping (modem stats JSON or parsed VE.Direct text labels). */
@@ -312,6 +409,53 @@ export interface PluginStatus {
   data_dir?: string;
   description?: string;
 }
+
+export interface RadioFrontendSettings {
+  /**
+   * Periodic AGC reset in seconds, 0 = off. KISS firmware accepts 0-1020 and rounds down to a multiple of 4. An OpenHop modem accepts 0-3600 in 1-second steps. The stored value is what the radio confirmed. An interval within these request limits but outside the radio's range produces a per-key error naming that range and is not sent or saved.
+   * @min 0
+   * @max 3600
+   */
+  agc_reset_interval_seconds?: number;
+  /** External FEM RX (LNA) gain */
+  fem_rx_gain?: boolean;
+  /** External FEM TX (PA) high gain */
+  fem_tx_gain?: boolean;
+  /** The radio chip's own boosted RX gain (MeshCore radio.rxgain), separate from the external FEM RX gain */
+  rx_boosted_gain?: boolean;
+}
+
+export interface RadioFrontendStatus {
+  /** Configured default radio type, stripped and lower-cased; null when absent */
+  radio_type?: string | null;
+  /** Probed control limits; absent keys have no known limits */
+  limits?: {
+    /** AGC interval range and step in seconds, bounded by the host limit */
+    agc_reset_interval_seconds?: {
+      min: number;
+      max: number;
+      step: number;
+    };
+  };
+  /** Default radio is a KISS or OpenHop modem with front-end controls */
+  available: boolean;
+  supports: {
+    agc_reset_interval_seconds: boolean;
+    fem_rx_gain: boolean;
+    fem_tx_gain: boolean;
+    rx_boosted_gain: boolean;
+  };
+  /** Values the modem reports now */
+  running: RadioFrontendSettings;
+  /** Values the config asks for; an absent key keeps the board default */
+  configured: RadioFrontendSettings;
+}
+
+export type RadioFrontendApplyResult = RadioFrontendStatus & {
+  applied: RadioFrontendSettings;
+  /** Reason per setting that was not applied; "save" for a failed config save */
+  errors: Record<string, string>;
+};
 
 export interface SuccessResponse {
   /** @example true */
@@ -1038,6 +1182,65 @@ export interface RoomClient {
    * @example true
    */
   is_active: boolean;
+}
+
+export interface CompanionHistoryMessage {
+  /**
+   * The cursor; never reissued
+   * @example 123
+   */
+  id: number;
+  /**
+   * Sender's public key (64 hex chars); the companion's own for a message it sent, empty for a received channel message
+   * @example "abc123def456..."
+   */
+  sender_key: string;
+  /** Recipient's public key (64 hex chars) of a direct message the companion sent, else empty */
+  recipient_key: string;
+  /**
+   * MeshCore text type (0 plain, 2 signed plain); CLI traffic is not kept
+   * @example 0
+   */
+  txt_type: number;
+  /**
+   * The message's own timestamp (Unix epoch)
+   * @example 1734567890
+   */
+  timestamp: number;
+  /** Message text; a received channel message carries its `<name>: ` prefix */
+  text: string;
+  is_channel: boolean;
+  /** Channel slot when `is_channel`, else 0 */
+  channel_idx: number;
+  /** Route byte as received (encoded path length, 0xFF for direct); 0 for a sent message */
+  path_len: number;
+  /** 4-byte author prefix of a signed room post (8 hex chars), else empty */
+  sender_prefix: string;
+  /**
+   * SNR of the received packet in dB; null when there is no reading, as for a sent message
+   * @format float
+   * @example 7.5
+   */
+  snr: number | null;
+  /**
+   * RSSI of the received packet in dBm; null when there is no reading
+   * @example -90
+   */
+  rssi: number | null;
+  /** Type byte of binary channel data, else 0 */
+  channel_data_type: number;
+  /** Binary channel data (hex), else empty */
+  channel_data_payload: string;
+  /** Hash of the received packet, when known; null for a sent message */
+  packet_hash: string | null;
+  /** ACK CRC of a direct message the companion sent, which `send_confirmed` reports; null otherwise */
+  expected_ack: number | null;
+  /**
+   * When the repeater recorded the row (Unix epoch); retention expires by it
+   * @format float
+   * @example 1734567890.5
+   */
+  created_at: number;
 }
 
 export interface Identity {
@@ -2348,6 +2551,45 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
         ...params,
       }),
   };
+  networkUsage = {
+    /**
+     * @description Persisted minute-resolution deltas in the current network namespace, retained for eight days. Container deployments measure container-visible interfaces, not whole-host traffic. Interfaces overlap (bridges, tunnels, loopback and physical uplinks); select an interface rather than summing them. MQTT totals are UTF-8 payload bytes/messages accepted locally by Paho across broker and legacy publishers (including Glass telemetry), not transport bytes, broker receipts or carrier billing. Overall MQTT totals derive from the broker rows. No backfill before collection started. In-progress minute is excluded; start and end are effective minute-aligned UNIX seconds with a half-open range. Interface deltas are attributed to the sample-ending minute. Full coverage requires uninterrupted sampling across each minute; startup, restart, counter resets, interface changes, delayed/failed sampling and dropped pending data leave partial history. Empty MQTT rows mean zero only when partial is false. Values are persisted only, normally lagging collection by up to ten seconds. Windows are rolling durations, defaulting to 24 hours. Specify hours or the deprecated days parameter, never both. No history reset or migration is needed.
+     *
+     * @tags System
+     * @name GetNetworkUsage
+     * @summary Get measured network and MQTT usage
+     * @request GET:/network_usage
+     * @secure
+     */
+    getNetworkUsage: (
+      query?: {
+        /**
+         * Rolling duration in hours; defaults to 24 when neither parameter is supplied.
+         * @min 1
+         * @max 168
+         * @default 24
+         */
+        hours?: number;
+        /**
+         * Legacy rolling duration in days; mutually exclusive with hours.
+         * @deprecated
+         * @min 1
+         * @max 7
+         * @default 1
+         */
+        days?: number;
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<NetworkUsage, ErrorResponse | void>({
+        path: `/network_usage`,
+        method: 'GET',
+        query: query,
+        secure: true,
+        format: 'json',
+        ...params,
+      }),
+  };
   packetStats = {
     /**
      * @description Returns packet counts, types, and routing statistics
@@ -2431,6 +2673,59 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
         path: `/set_duty_cycle`,
         method: 'POST',
         body: data,
+        type: ContentType.Json,
+        format: 'json',
+        ...params,
+      }),
+  };
+  radioFrontend = {
+    /**
+     * @description AGC reset interval, external FEM gain and radio chip boosted RX gain of the default radio, read from the modem. KISS firmware v2 and OpenHop modem firmware that implements the RF frame commands report support; the controls a board supports come from the board itself.
+     *
+     * @tags System
+     * @name RadioFrontendList
+     * @summary Get default-radio RF front-end controls
+     * @request GET:/radio_frontend
+     * @secure
+     */
+    radioFrontendList: (params: RequestParams = {}) =>
+      this.request<
+        {
+          success: boolean;
+          data: RadioFrontendStatus;
+        },
+        any
+      >({
+        path: `/radio_frontend`,
+        method: 'GET',
+        secure: true,
+        format: 'json',
+        ...params,
+      }),
+
+    /**
+     * @description Applies the given settings to the default radio's modem and persists only the values it confirms. Takes effect immediately; no restart is needed. Omitted fields are left unchanged.
+     *
+     * @tags System
+     * @name RadioFrontendCreate
+     * @summary Set default-radio RF front-end controls
+     * @request POST:/radio_frontend
+     * @secure
+     */
+    radioFrontendCreate: (data: RadioFrontendSettings, params: RequestParams = {}) =>
+      this.request<
+        {
+          success: boolean;
+          error?: string;
+          restart_required?: boolean;
+          data?: RadioFrontendApplyResult;
+        },
+        any
+      >({
+        path: `/radio_frontend`,
+        method: 'POST',
+        body: data,
+        secure: true,
         type: ContentType.Json,
         format: 'json',
         ...params,
@@ -5325,7 +5620,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
   };
   mqttStatus = {
     /**
-     * No description
+     * @description Per-broker sent counters are session-only and reset when the broker connection is recreated or the service restarts. They count locally accepted payload bytes, not confirmed delivery or network overhead. For persistent rolling totals, including Glass telemetry, use /network_usage.
      *
      * @tags System
      * @name MqttStatusList
@@ -5333,7 +5628,29 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @request GET:/mqtt_status
      */
     mqttStatusList: (params: RequestParams = {}) =>
-      this.request<object, any>({
+      this.request<
+        {
+          success?: boolean;
+          data?: {
+            handler_active?: boolean;
+            brokers?: {
+              enabled?: boolean;
+              name?: string;
+              host?: string;
+              format?: string;
+              neighbors?: boolean;
+              status?: {
+                connected?: boolean;
+                reconnecting?: boolean;
+              };
+              /** Locally accepted outgoing message counts and UTF-8 payload bytes for this broker connection. Reset on connection recreation or service restart, not on a normal reconnect. Excludes topics, protocol overhead, retries and Glass's separate client; accepted messages are not guaranteed delivered. */
+              sent?: MqttSentCounters;
+            }[];
+            neighbors?: object | null;
+          };
+        },
+        any
+      >({
         path: `/mqtt_status`,
         method: 'GET',
         format: 'json',
@@ -6359,6 +6676,46 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
       this.request<object, any>({
         path: `/companion/stats`,
         method: 'GET',
+        format: 'json',
+        ...params,
+      }),
+
+    /**
+     * @description The history a companion keeps when `message_history` is on, `id` ascending. Pass the last `id` seen as `since` to read only what is new; each client keeps its own cursor. A message the companion sent, from any client, has its own key as `sender_key`.
+     *
+     * @tags System
+     * @name MessagesList
+     * @summary Companion message history, received and sent, oldest first
+     * @request GET:/companion/messages
+     */
+    messagesList: (
+      query?: {
+        /**
+         * Return only rows with an `id` above this
+         * @min 0
+         * @default 0
+         */
+        since?: number;
+        /**
+         * Max rows to return; clamped to 1-500
+         * @min 1
+         * @max 500
+         * @default 100
+         */
+        limit?: number;
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<
+        {
+          success?: boolean;
+          data?: CompanionHistoryMessage[];
+        },
+        void
+      >({
+        path: `/companion/messages`,
+        method: 'GET',
+        query: query,
         format: 'json',
         ...params,
       }),
